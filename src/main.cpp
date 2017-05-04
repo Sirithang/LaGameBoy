@@ -15,6 +15,8 @@ int main(int argc, char **argv)
 	cpu.PC = 0;
 	cpu.registers.F = 0;
 
+	memc::init(cpu.memc);
+
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("SDL init failure! SDL_Error: %s\n", SDL_GetError());
 	}
@@ -45,14 +47,14 @@ int main(int argc, char **argv)
 						loop = 0;
 						break;
 					}
+				}
 
-					if (cputick)
-					{
-						cputick = cpu::tick(cpu) < 0 ? 0 : 1;
+				if (cputick)
+				{
+					cputick = cpu::tick(cpu) < 0 ? 0 : 1;
 
-						if (cputick == 0)
-							printf("cpu ticking halted, unknown opcode\n");
-					}
+					if (cputick == 0)
+						printf("cpu ticking halted, unknown opcode\n");
 				}
 			}
 		}

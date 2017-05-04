@@ -7,6 +7,7 @@ const int SCREEN_HEIGHT = 144;
 
 typedef unsigned char u8;
 typedef unsigned short u16;
+typedef signed char s8;
 
 struct VideoController
 {
@@ -16,13 +17,16 @@ struct VideoController
 
 struct MemoryController
 {
-	VideoController vcontroller;
+	u8* memory;
 };
 
 
 namespace memc
 {
+	void init(MemoryController& controller);
+
 	u8 fetchu8(MemoryController& controller, u16 address);
+	s8 fetchs8(MemoryController& controller, u16 address);
 	u16 fetchu16(MemoryController& controller, u16 address);
 
 	void writeu8(MemoryController& controller, u16 address, u8 value);

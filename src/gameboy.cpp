@@ -1,4 +1,5 @@
 #include "gameboy.h"
+#include <stdio.h>
 
 #define CAST_MEMPTR_TO_SHORT(val) *(u16*)(val)
 
@@ -16,19 +17,26 @@ static u8 g_bootstrap[] =
 
 inline u8* fetchMemory(MemoryController& controller, u16 address)
 {
+	//TODO : this will have to be switched, as interup is mapped to 0x0000 to 0x00ff after bootstrap
 	if (address <= 0xFF)
 	{
 		return &g_bootstrap[address];
 	}
-	else if (address >= 0x8000 && address <= 0x9FFF)
+	else
 	{
-		return (controller.vcontroller.VRAM + (address - 0x8000));
+		return controller.memory + address;
 	}
 
+	printf("Unknown asked memory %hx\n", address);
 	return 0;
 }
 
 u8 memc::fetchu8(MemoryController& controller, u16 address)
+{
+	return *fetchMemory(controller, address);
+}
+
+s8 memc::fetchs8(MemoryController& controller, u16 address)
 {
 	return *fetchMemory(controller, address);
 }
@@ -46,6 +54,11 @@ void memc::writeu8(MemoryController& controller, u16 address, u8 value)
 void memc::writeu16(MemoryController& controller, u16 address, u16 value)
 {
 	*(u16*)(fetchMemory(controller, address)) = value;
+}
+
+void memc::init(MemoryController& controller)
+{
+	controller.memory = (u8*)malloc(0xFFFF * sizeof(u8*));
 }
 
 //==================================
