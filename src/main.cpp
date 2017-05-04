@@ -15,7 +15,7 @@ int main(int argc, char **argv)
 	cpu.PC = 0;
 	cpu.registers.F = 0;
 
-	memc::init(cpu.memc);
+	cart::load(cpu.addresser.cart, "data/Tetris.gb");
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("SDL init failure! SDL_Error: %s\n", SDL_GetError());

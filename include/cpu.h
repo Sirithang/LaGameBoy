@@ -57,7 +57,7 @@ struct CPU
 	u16 SP;
 	u16 PC;
 
-	MemoryController memc;
+	Addresser addresser;
 };
 
 namespace cpu

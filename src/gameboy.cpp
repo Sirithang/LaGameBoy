@@ -3,7 +3,8 @@
 
 #define CAST_MEMPTR_TO_SHORT(val) *(u16*)(val)
 
-using namespace memc;
+using namespace cart;
+using namespace addresser;
 using namespace videocontroller;
 
 static u8 g_bootstrap[] = 
@@ -15,50 +16,121 @@ static u8 g_bootstrap[] =
 	134, 35, 5, 32, 251, 134, 32, 254, 62, 1, 224, 80, 0
 };
 
-inline u8* fetchMemory(MemoryController& controller, u16 address)
-{
-	//TODO : this will have to be switched, as interup is mapped to 0x0000 to 0x00ff after bootstrap
-	if (address <= 0xFF)
+inline u8* fetchMemory(Addresser& addresser, u16 address)
+{	if (address <= 0xFF)
 	{
 		return &g_bootstrap[address];
 	}
+	else if(address <= 0x7FFF)
+	{
+		return cart::address(addresser.cart, address);
+	}
+	else if(address <= 0x9FFF)
+	{
+		return &addresser.internalMemory.VRAM[address - 0x8000];
+	}
+	else if (address <= 0xBFFF)
+	{
+		return cart::address(addresser.cart, address);
+	}
+	else if (address <= 0xDFFF)
+	{
+		return &addresser.internalMemory.WRAM[address - 0xC000];
+	}
+	else if (address <= 0xFDFF)
+	{//ECHO ram
+		printf("Writing/Reading to ECHo RAM, Handle that shit later\n");
+	}
+	else if (address <= 0xFE9F)
+	{
+		return &addresser.internalMemory.OAM[address - 0xFE00];
+	}
+	else if (address <= 0xFEFF)
+	{
+		printf("Non usable address space you dummy.\n");
+	}
+	else if (address <= 0xFF7F)
+	{
+		return &addresser.internalMemory.IORegister[address - 0xFF80];
+	}
+	else if (address <= 0xFFFE)
+	{
+		return &addresser.internalMemory.HRAM[address - 0xFF80];
+	}
 	else
 	{
-		return controller.memory + address;
+		return &addresser.internalMemory.InterruptRegister;
 	}
 
-	printf("Unknown asked memory %hx\n", address);
+	printf("Bad asked memory %hx\n", address);
 	return 0;
 }
 
-u8 memc::fetchu8(MemoryController& controller, u16 address)
+//== cart
+
+
+void cart::load(Cart& cart, const char* path)
+{
+	FILE *file;
+	unsigned long fileLen;
+
+	//Open file
+	fopen_s(&file, path, "rb");
+	if (!file)
+	{
+		fprintf(stderr, "Unable to open file %s\n", path);
+		return;
+	}
+
+	//Get file length
+	fseek(file, 0, SEEK_END);
+	fileLen = ftell(file);
+	fseek(file, 0, SEEK_SET);
+
+	//Allocate memory
+	cart.content = (u8*)malloc(fileLen + 1);
+	if (!cart.content)
+	{
+		fprintf(stderr, "Memory error!");
+		fclose(file);
+		return;
+	}
+
+	//Read file contents into buffer
+	fread(cart.content, fileLen, 1, file);
+	fclose(file);
+}
+
+u8* cart::address(Cart& cart, u16 address)
+{
+	return cart.content + address;
+}
+
+//=======
+
+u8 addresser::fetchu8(Addresser& controller, u16 address)
 {
 	return *fetchMemory(controller, address);
 }
 
-s8 memc::fetchs8(MemoryController& controller, u16 address)
+s8 addresser::fetchs8(Addresser& controller, u16 address)
 {
 	return *fetchMemory(controller, address);
 }
 
-u16 memc::fetchu16(MemoryController& controller, u16 address)
+u16 addresser::fetchu16(Addresser& controller, u16 address)
 {
 	return CAST_MEMPTR_TO_SHORT(fetchMemory(controller, address));
 }
 
-void memc::writeu8(MemoryController& controller, u16 address, u8 value)
+void addresser::writeu8(Addresser& controller, u16 address, u8 value)
 {
 	*(fetchMemory(controller, address)) = value;
 }
 
-void memc::writeu16(MemoryController& controller, u16 address, u16 value)
+void addresser::writeu16(Addresser& controller, u16 address, u16 value)
 {
 	*(u16*)(fetchMemory(controller, address)) = value;
-}
-
-void memc::init(MemoryController& controller)
-{
-	controller.memory = (u8*)malloc(0xFFFF * sizeof(u8*));
 }
 
 //==================================

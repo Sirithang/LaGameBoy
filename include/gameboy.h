@@ -15,22 +15,42 @@ struct VideoController
 	SDL_Texture* displayBuffer;
 };
 
-struct MemoryController
+struct InternalMemory
 {
-	u8* memory;
+	u8 VRAM[0x1FFF];
+	u8 OAM[0x9F];
+	u8 WRAM[0x1FFF];
+	u8 IORegister[0x7F];
+	u8 HRAM[0x7E];
+	u8 InterruptRegister;
 };
 
-
-namespace memc
+struct Cart
 {
-	void init(MemoryController& controller);
+	u8* content;
+	//TODO handle MBC
+};
 
-	u8 fetchu8(MemoryController& controller, u16 address);
-	s8 fetchs8(MemoryController& controller, u16 address);
-	u16 fetchu16(MemoryController& controller, u16 address);
+struct Addresser
+{
+	InternalMemory internalMemory;
+	Cart cart;
+};
 
-	void writeu8(MemoryController& controller, u16 address, u8 value);
-	void writeu16(MemoryController& controller, u16 address, u16 value);
+namespace cart
+{
+	void load(Cart& cart, const char* path);
+	u8* address(Cart& cart, u16 address);
+}
+
+namespace addresser
+{
+	u8 fetchu8(Addresser& addresser, u16 address);
+	s8 fetchs8(Addresser& addresser, u16 address);
+	u16 fetchu16(Addresser& addresser, u16 address);
+
+	void writeu8(Addresser& addresser, u16 address, u8 value);
+	void writeu16(Addresser& addresser, u16 address, u16 value);
 }
 
 namespace videocontroller
