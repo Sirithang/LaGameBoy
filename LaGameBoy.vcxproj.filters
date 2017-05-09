@@ -24,12 +24,18 @@
     <ClCompile Include="src\gameboy.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\graphic.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\cpu.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\gameboy.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\graphic.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

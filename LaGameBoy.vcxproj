@@ -90,11 +90,13 @@
   <ItemGroup>
     <ClCompile Include="src\cpu.cpp" />
     <ClCompile Include="src\gameboy.cpp" />
+    <ClCompile Include="src\graphic.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\cpu.h" />
     <ClInclude Include="include\gameboy.h" />
+    <ClInclude Include="include\graphic.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
