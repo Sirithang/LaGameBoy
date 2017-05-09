@@ -16,12 +16,12 @@ struct VideoController
 };
 
 struct InternalMemory
-{
-	u8 VRAM[0x1FFF];
-	u8 OAM[0x9F];
-	u8 WRAM[0x1FFF];
-	u8 IORegister[0x7F];
-	u8 HRAM[0x7E];
+{ //all memeory size have +1, because the size have been computed as ending_adress - starting_adress. but ending adress is included.
+	u8 VRAM[0x1FFF + 1];
+	u8 OAM[0x9F + 1];
+	u8 WRAM[0x1FFF + 1];
+	u8 IORegister[0x7F + 1];
+	u8 HRAM[0x7E + 1];
 	u8 InterruptRegister;
 };
 
