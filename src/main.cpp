@@ -3,6 +3,8 @@
 
 #include "cpu.h"
 
+
+
 int main(int argc, char **argv)
 {
 	SDL_Window* window = NULL;
@@ -10,6 +12,8 @@ int main(int argc, char **argv)
 	SDL_Event event;
 	int cputick = 1;
 	int loop = 1;
+
+	SDL_Window* debugTileWindow = NULL;
 
 	CPU cpu;
 	cpu.PC = 0;
@@ -23,6 +27,8 @@ int main(int argc, char **argv)
 	else 
 	{
 		window = SDL_CreateWindow("SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+		debugTileWindow = SDL_CreateWindow("Tile Memory", 10, 10, 16 * 8, 16 * 8, SDL_WINDOW_SHOWN);
+
 		if (window == NULL) 
 		{
 			printf("Window create fail! SDL_Error: %s\n", SDL_GetError());
