@@ -2,8 +2,7 @@
 #include <iostream>
 
 #include "cpu.h"
-
-
+#include "graphic.h"
 
 int main(int argc, char **argv)
 {
@@ -13,6 +12,7 @@ int main(int argc, char **argv)
 	int cputick = 1;
 	int loop = 1;
 
+	const int tileDebugSize = 16 * 8;
 	SDL_Window* debugTileWindow = NULL;
 
 	CPU cpu;
@@ -27,7 +27,7 @@ int main(int argc, char **argv)
 	else 
 	{
 		window = SDL_CreateWindow("SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
-		debugTileWindow = SDL_CreateWindow("Tile Memory", 10, 10, 16 * 8, 16 * 8, SDL_WINDOW_SHOWN);
+		debugTileWindow = SDL_CreateWindow("Tile Memory", 100, 100, 16 * 8, 16 * 8, SDL_WINDOW_SHOWN);
 
 		if (window == NULL) 
 		{
@@ -38,10 +38,19 @@ int main(int argc, char **argv)
 			screenSurface = SDL_GetWindowSurface(window);
 			SDL_FillRect(screenSurface, NULL, SDL_MapRGB(screenSurface->format, 0xFF, 0xFF, 0xFF));
 			SDL_UpdateWindowSurface(window);
-			
+
+			SDL_Renderer* debugTileRenderer = SDL_CreateRenderer(debugTileWindow, -1, SDL_RENDERER_ACCELERATED);
+			SDL_Texture* texture = SDL_CreateTexture(debugTileRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, tileDebugSize, tileDebugSize);
+			Uint32* debugTilePixels = new Uint32[tileDebugSize*tileDebugSize];
+		
+			int start, end;
+			int currentTick = 70224;
 
 			while (loop)
 			{
+				//we carry over the tick we overflow last frame
+				currentTick = currentTick - 70224;
+				start = SDL_GetTicks();
 				while (SDL_PollEvent(&event))
 				{
 					switch (event.type)
@@ -55,13 +64,35 @@ int main(int argc, char **argv)
 					}
 				}
 
-				if (cputick)
+				while (cputick > 0 && currentTick < 70224)
 				{
-					cputick = cpu::tick(cpu) < 0 ? 0 : 1;
+					int cycle = cpu::tick(cpu);
 
-					if (cputick == 0)
+					if (cycle < 0)
+					{
 						printf("cpu ticking halted, unknown opcode\n");
+						cputick = 0;
+					}
+					else
+						currentTick += cycle;
 				}
+
+				SDL_RenderClear(debugTileRenderer);
+				//tile debug
+				for (int y = 0; y < 16; ++y)
+				{
+					for (int x = 0; x < 16; ++x)
+					{
+						graphic::drawTile(cpu, x * 8, y * 8, (y * 16) + x, debugTilePixels, tileDebugSize);
+					}
+				}
+
+				SDL_UpdateTexture(texture, NULL, &debugTilePixels[0], tileDebugSize * 4);
+				SDL_RenderCopy(debugTileRenderer, texture, NULL, NULL);
+				SDL_RenderPresent(debugTileRenderer);
+
+				end = SDL_GetTicks();
+				//printf("Frame time %i \n", (end - start));
 			}
 		}
 	}

@@ -7,6 +7,13 @@ const u8 SUBSTRACT_FLAG_BIT = 6;
 const u8 HALF_CARRY_FLAG_BIT = 5;
 const u8 CARRY_FLAG_BIT = 4;
 
+//return 0 if bit is not 1 in value
+#define BITTEST(value,bit) ((value) & (1<<(bit)))
+#define BITSET(value,bit) value |= 1 << bit
+#define BITCLEAR(value,bit) value &= ~(1 << bit)
+
+#define HALF_CARRY_TEST_ADD(a,b) ((a&0xf) + (b&0xf))&0x10
+#define HALF_CARRY_TEST_SUB(a,b) ((a&0xf) - (b&0xf))&0x10
 
 struct CPU
 {
