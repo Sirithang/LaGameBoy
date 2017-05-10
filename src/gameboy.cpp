@@ -1,10 +1,11 @@
 #include "gameboy.h"
+#include "graphic.h"
 #include <stdio.h>
 
 #define CAST_MEMPTR_TO_SHORT(val) *(u16*)(val)
 
 using namespace cart;
-using namespace addresser;
+using namespace motherboard;
 
 static u8 g_bootstrap[] = 
 {
@@ -15,26 +16,26 @@ static u8 g_bootstrap[] =
 	134, 35, 5, 32, 251, 134, 32, 254, 62, 1, 224, 80, 0
 };
 
-inline u8* fetchMemory(Addresser& addresser, u16 address)
+inline u8* fetchMemory(Motherboard* motherboard, u16 address)
 {	if (address <= 0xFF)
 	{
 		return &g_bootstrap[address];
 	}
 	else if(address <= 0x7FFF)
 	{
-		return cart::address(addresser.cart, address);
+		return cart::address(&motherboard->cart, address);
 	}
 	else if(address <= 0x9FFF)
 	{
-		return &addresser.internalMemory.VRAM[address - 0x8000];
+		return &motherboard->internalMemory.VRAM[address - 0x8000];
 	}
 	else if (address <= 0xBFFF)
 	{
-		return cart::address(addresser.cart, address);
+		return cart::address(&motherboard->cart, address);
 	}
 	else if (address <= 0xDFFF)
 	{
-		return &addresser.internalMemory.WRAM[address - 0xC000];
+		return &motherboard->internalMemory.WRAM[address - 0xC000];
 	}
 	else if (address <= 0xFDFF)
 	{//ECHO ram
@@ -42,7 +43,7 @@ inline u8* fetchMemory(Addresser& addresser, u16 address)
 	}
 	else if (address <= 0xFE9F)
 	{
-		return &addresser.internalMemory.OAM[address - 0xFE00];
+		return &motherboard->internalMemory.OAM[address - 0xFE00];
 	}
 	else if (address <= 0xFEFF)
 	{
@@ -50,15 +51,15 @@ inline u8* fetchMemory(Addresser& addresser, u16 address)
 	}
 	else if (address <= 0xFF7F)
 	{
-		return &addresser.internalMemory.IORegister[address - 0xFF00];
+		return &motherboard->internalMemory.IORegister[address - 0xFF00];
 	}
 	else if (address <= 0xFFFE)
 	{
-		return &addresser.internalMemory.HRAM[address - 0xFF80];
+		return &motherboard->internalMemory.HRAM[address - 0xFF80];
 	}
 	else
 	{
-		return &addresser.internalMemory.InterruptRegister;
+		return &motherboard->internalMemory.InterruptRegister;
 	}
 
 	printf("Bad asked memory %hx\n", address);
@@ -68,7 +69,7 @@ inline u8* fetchMemory(Addresser& addresser, u16 address)
 //== cart
 
 
-void cart::load(Cart& cart, const char* path)
+void cart::load(Cart* cart, const char* path)
 {
 	FILE *file;
 	unsigned long fileLen;
@@ -87,8 +88,8 @@ void cart::load(Cart& cart, const char* path)
 	fseek(file, 0, SEEK_SET);
 
 	//Allocate memory
-	cart.content = (u8*)malloc(fileLen + 1);
-	if (!cart.content)
+	cart->content = (u8*)malloc(fileLen + 1);
+	if (!cart->content)
 	{
 		fprintf(stderr, "Memory error!");
 		fclose(file);
@@ -96,113 +97,53 @@ void cart::load(Cart& cart, const char* path)
 	}
 
 	//Read file contents into buffer
-	fread(cart.content, fileLen, 1, file);
+	fread(cart->content, fileLen, 1, file);
 	fclose(file);
 }
 
-u8* cart::address(Cart& cart, u16 address)
+u8* cart::address(Cart* cart, u16 address)
 {
-	return cart.content + address;
+	return cart->content + address;
 }
 
 //=======
 
-void gpu::init(GPU& gpu)
+void motherboard::init(Motherboard* motherboard)
 {
-	gpu.currentTick = 0;
-	gpu.currentLine = 0;
-	gpu.currentState = 2;
+	motherboard->cpu.mb = motherboard;
+	motherboard->gpu.mb = motherboard;
+
+	SDL_zero(motherboard->internalMemory.IORegister);
 }
 
-bool gpu::tick(GPU& gpu, int tickCount)
-{
-	bool dirty = false;
-	gpu.currentTick += tickCount;
-
-	switch (gpu.currentState)
-	{
-	case 2: //OAM access
-		if (gpu.currentTick > 80)
-		{
-			gpu.currentTick -= 80;
-			gpu.currentState = 3;
-		}
-	break;
-	case 3: //Vram & OAM access
-		if (gpu.currentTick > 172)
-		{
-			gpu.currentTick -= 172;
-			gpu.currentState = 0;
-
-			//TODO draw a scanline
-		}
-		break;
-	case 0: // HBLANK
-		if (gpu.currentTick > 204)
-		{
-			gpu.currentTick -= 204;
-			gpu.currentLine++;
-
-			if (gpu.currentLine == 143)
-			{//go into VBLANK
-				gpu.currentState = 1;
-				dirty = true;
-			}
-			else
-			{//continue scanning down
-				gpu.currentState = 2;
-			}
-		}
-		break;
-	case 1: //VBLANK
-		if (gpu.currentTick > 456)
-		{
-			gpu.currentTick -= 456;
-			gpu.currentLine++;
-
-			if (gpu.currentLine > 153)
-			{//finished VBlank, go back to scanline writing on top
-				gpu.currentLine = 0;
-				gpu.currentState = 2;
-			}
-		}
-	default:
-		break;
-	}
-
-	return dirty;
-}
-
-//=======
-
-u8 addresser::fetchu8(Addresser& controller, u16 address)
+u8 motherboard::fetchu8(Motherboard* controller, u16 address)
 {
 	return *fetchMemory(controller, address);
 }
 
-s8 addresser::fetchs8(Addresser& controller, u16 address)
+s8 motherboard::fetchs8(Motherboard* controller, u16 address)
 {
 	return *fetchMemory(controller, address);
 }
 
-u16 addresser::fetchu16(Addresser& controller, u16 address)
+u16 motherboard::fetchu16(Motherboard* controller, u16 address)
 {
 	return CAST_MEMPTR_TO_SHORT(fetchMemory(controller, address));
 }
 
-void addresser::writeu8(Addresser& controller, u16 address, u8 value)
+void motherboard::writeu8(Motherboard* controller, u16 address, u8 value)
 {
 	*(fetchMemory(controller, address)) = value;
 }
 
-void addresser::writeu16(Addresser& controller, u16 address, u16 value)
+void motherboard::writeu16(Motherboard* controller, u16 address, u16 value)
 {
 	*(u16*)(fetchMemory(controller, address)) = value;
 }
 
-void addresser::updateGPURegister(Addresser& addresser)
+void motherboard::updateGPURegister(Motherboard* motherboard)
 {
-	addresser::writeu8(addresser, 0xFF44, addresser.gpu.currentLine);
+	motherboard::writeu8(motherboard, 0xFF44, motherboard->gpu.currentLine);
 }
 
 //==================================

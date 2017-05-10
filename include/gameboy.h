@@ -1,14 +1,12 @@
 #pragma once
 
 #include "SDL.h"
+#include "utils.h"
+#include "cpu.h"
+#include "graphic.h"
 
-const int SCREEN_WIDTH = 160;
-const int SCREEN_HEIGHT = 144;
-
-typedef unsigned char u8;
-typedef unsigned short u16;
-typedef signed char s8;
-
+//Abstract all internal memory into a single struct for ease of access and tracking, even if some should be on their own system 
+//(e.g. VRAM/OAM on GPU, IO register split onto each of the devices...)
 struct InternalMemory
 { //all memeory size have +1, because the size have been computed as ending_adress - starting_adress. but ending adress is included.
 	u8 VRAM[0x1FFF + 1];
@@ -20,49 +18,37 @@ struct InternalMemory
 };
 
 
-struct GPU
-{
-	int currentTick;
-	//0:HBLANK, 1:VBLANK, 2:OAM ACCESS, 3:VRAM access 
-	u8 currentState;
-	u8 currentLine;
-};
-
 struct Cart
 {
 	u8* content;
 	//TODO handle MBC
 };
 
-struct Addresser
+struct Motherboard
 {
 	InternalMemory internalMemory;
+	CPU cpu;
 	GPU gpu;
 	Cart cart;
 };
 
 namespace cart
 {
-	void load(Cart& cart, const char* path);
-	u8* address(Cart& cart, u16 address);
+	void load(Cart* cart, const char* path);
+	u8* address(Cart* cart, u16 address);
 }
 
-namespace gpu
+
+namespace motherboard
 {
-	void init(GPU& gpu);
+	void init(Motherboard* motherboard);
 
-	//return true if the display buffer must be displayed on screen (VBLANK triggered)
-	bool tick(GPU& gpu, int tickCount);
-}
+	u8 fetchu8(Motherboard* motherboard, u16 address);
+	s8 fetchs8(Motherboard* motherboard, u16 address);
+	u16 fetchu16(Motherboard* motherboard, u16 address);
 
-namespace addresser
-{
-	u8 fetchu8(Addresser& addresser, u16 address);
-	s8 fetchs8(Addresser& addresser, u16 address);
-	u16 fetchu16(Addresser& addresser, u16 address);
+	void writeu8(Motherboard* motherboard, u16 address, u8 value);
+	void writeu16(Motherboard* motherboard, u16 address, u16 value);
 
-	void writeu8(Addresser& addresser, u16 address, u8 value);
-	void writeu16(Addresser& addresser, u16 address, u16 value);
-
-	void updateGPURegister(Addresser& addresser);
+	void updateGPURegister(Motherboard* motherboard);
 }

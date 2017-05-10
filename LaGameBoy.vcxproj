@@ -60,6 +60,7 @@
       <AdditionalLibraryDirectories>./ext/SDL2/lib/x64</AdditionalLibraryDirectories>
       <AdditionalDependencies>SDL2main.lib;SDL2.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>Debug</GenerateDebugInformation>
     </Link>
     <PreBuildEvent>
       <Command>
@@ -90,14 +91,17 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\cpu.cpp" />
+    <ClCompile Include="src\debugger.cpp" />
     <ClCompile Include="src\gameboy.cpp" />
     <ClCompile Include="src\graphic.cpp" />
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\cpu.h" />
+    <ClInclude Include="include\debugger.h" />
     <ClInclude Include="include\gameboy.h" />
     <ClInclude Include="include\graphic.h" />
+    <ClInclude Include="include\utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -1,8 +1,10 @@
 #include <SDL.h>
 #include <iostream>
 
-#include "cpu.h"
+#include "gameboy.h"
 #include "graphic.h"
+#include "debugger.h"
+
 
 int main(int argc, char **argv)
 {
@@ -12,16 +14,19 @@ int main(int argc, char **argv)
 	int cputick = 1;
 	int loop = 1;
 
-	const int tileDebugSize = 16 * 8;
-	SDL_Window* debugTileWindow = NULL;
-
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("SDL init failure! SDL_Error: %s\n", SDL_GetError());
 	}
 	else 
 	{
-		window = SDL_CreateWindow("SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
-		debugTileWindow = SDL_CreateWindow("Tile Memory", 100, 100, 16 * 8, 16 * 8, SDL_WINDOW_SHOWN);
+		//debugger init
+		DebugDisplay tileDataDisplay;
+		debugger::createDebugDisplay(&tileDataDisplay, "Tile Data", 128, 128, 2);
+
+		DebugDisplay bgmapDisplay;
+		debugger::createDebugDisplay(&bgmapDisplay, "BG 0", 256, 256, 2);
+
+		window = SDL_CreateWindow("La GameBoy", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH*2, SCREEN_HEIGHT*2, SDL_WINDOW_SHOWN);
 
 		if (window == NULL) 
 		{
@@ -33,17 +38,19 @@ int main(int argc, char **argv)
 			SDL_FillRect(screenSurface, NULL, SDL_MapRGB(screenSurface->format, 0xFF, 0xFF, 0xFF));
 			SDL_UpdateWindowSurface(window);
 
-			SDL_Renderer* debugTileRenderer = SDL_CreateRenderer(debugTileWindow, -1, SDL_RENDERER_ACCELERATED);
-			SDL_Texture* texture = SDL_CreateTexture(debugTileRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, tileDebugSize, tileDebugSize);
-			Uint32* debugTilePixels = new Uint32[tileDebugSize*tileDebugSize];
+			//init the display texture
+			SDL_Renderer* screenRenderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+			SDL_Texture* screenTexture = SDL_CreateTexture(screenRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
 		
-		
-			CPU cpu;
-			cpu.PC = 0;
-			cpu.registers.F = 0;
 
-			cart::load(cpu.addresser.cart, "data/Tetris.gb");
-			gpu::init(cpu.addresser.gpu);
+			//Gameboy init
+			Motherboard mb;
+			mb.cpu.PC = 0;
+			mb.cpu.registers.F = 0;
+
+			motherboard::init(&mb);
+			cart::load(&mb.cart, "data/Tetris.gb");
+			gpu::init(&mb.gpu);
 
 			//used to refresh debug display every 70000 cycles;
 			int debugRefreshCycle = 0;
@@ -66,7 +73,7 @@ int main(int argc, char **argv)
 
 				if (cputick > 0)
 				{
-					int cycle = cpu::tick(cpu);
+					int cycle = cpu::tick(&mb.cpu);
 
 					if (cycle < 0)
 					{
@@ -77,31 +84,30 @@ int main(int argc, char **argv)
 					{
 						debugRefreshCycle += cycle;
 
-						if (gpu::tick(cpu.addresser.gpu, cycle))
-						{
-							//refresh display
+						if (gpu::tick(&mb.gpu, cycle))
+						{//the gpu got into VBLANK, time to update the screen
+							SDL_UpdateTexture(screenTexture, NULL, &mb.gpu.buffer[0], SCREEN_WIDTH * 4);
+							SDL_RenderCopy(screenRenderer, screenTexture, NULL, NULL);
+							SDL_RenderPresent(screenRenderer);
 						}
+
+						motherboard::updateGPURegister(&mb);
 					}
 				}
 				else
-					debugRefreshCycle += 1;
+					debugRefreshCycle += 10000;
 
 				if (debugRefreshCycle > 70000)
 				{
 					debugRefreshCycle -= 70000;
-					SDL_RenderClear(debugTileRenderer);
-					//tile debug
-					for (int y = 0; y < 16; ++y)
-					{
-						for (int x = 0; x < 16; ++x)
-						{
-							graphic::drawTile(cpu, x * 8, y * 8, (y * 16) + x, debugTilePixels, tileDebugSize);
-						}
-					}
+					
+					debugger::tileDataDebug(&tileDataDisplay, &mb);
+					debugger::bgmapDebug(&bgmapDisplay, &mb);
 
-					SDL_UpdateTexture(texture, NULL, &debugTilePixels[0], tileDebugSize * 4);
-					SDL_RenderCopy(debugTileRenderer, texture, NULL, NULL);
-					SDL_RenderPresent(debugTileRenderer);
+					// Update the screen for debug purpose (what was in the buffer before the CPu halted
+					SDL_UpdateTexture(screenTexture, NULL, &mb.gpu.buffer[0], SCREEN_WIDTH * 4);
+					SDL_RenderCopy(screenRenderer, screenTexture, NULL, NULL);
+					SDL_RenderPresent(screenRenderer);
 				}
 			}
 		}
