@@ -5,7 +5,6 @@
 
 using namespace cart;
 using namespace addresser;
-using namespace videocontroller;
 
 static u8 g_bootstrap[] = 
 {
@@ -51,7 +50,7 @@ inline u8* fetchMemory(Addresser& addresser, u16 address)
 	}
 	else if (address <= 0xFF7F)
 	{
-		return &addresser.internalMemory.IORegister[address - 0xFF80];
+		return &addresser.internalMemory.IORegister[address - 0xFF00];
 	}
 	else if (address <= 0xFFFE)
 	{
@@ -108,6 +107,74 @@ u8* cart::address(Cart& cart, u16 address)
 
 //=======
 
+void gpu::init(GPU& gpu)
+{
+	gpu.currentTick = 0;
+	gpu.currentLine = 0;
+	gpu.currentState = 2;
+}
+
+bool gpu::tick(GPU& gpu, int tickCount)
+{
+	bool dirty = false;
+	gpu.currentTick += tickCount;
+
+	switch (gpu.currentState)
+	{
+	case 2: //OAM access
+		if (gpu.currentTick > 80)
+		{
+			gpu.currentTick -= 80;
+			gpu.currentState = 3;
+		}
+	break;
+	case 3: //Vram & OAM access
+		if (gpu.currentTick > 172)
+		{
+			gpu.currentTick -= 172;
+			gpu.currentState = 0;
+
+			//TODO draw a scanline
+		}
+		break;
+	case 0: // HBLANK
+		if (gpu.currentTick > 204)
+		{
+			gpu.currentTick -= 204;
+			gpu.currentLine++;
+
+			if (gpu.currentLine == 143)
+			{//go into VBLANK
+				gpu.currentState = 1;
+				dirty = true;
+			}
+			else
+			{//continue scanning down
+				gpu.currentState = 2;
+			}
+		}
+		break;
+	case 1: //VBLANK
+		if (gpu.currentTick > 456)
+		{
+			gpu.currentTick -= 456;
+			gpu.currentLine++;
+
+			if (gpu.currentLine > 153)
+			{//finished VBlank, go back to scanline writing on top
+				gpu.currentLine = 0;
+				gpu.currentState = 2;
+			}
+		}
+	default:
+		break;
+	}
+
+	return dirty;
+}
+
+//=======
+
 u8 addresser::fetchu8(Addresser& controller, u16 address)
 {
 	return *fetchMemory(controller, address);
@@ -133,15 +200,9 @@ void addresser::writeu16(Addresser& controller, u16 address, u16 value)
 	*(u16*)(fetchMemory(controller, address)) = value;
 }
 
+void addresser::updateGPURegister(Addresser& addresser)
+{
+	addresser::writeu8(addresser, 0xFF44, addresser.gpu.currentLine);
+}
+
 //==================================
-
-void videocontroller::init(VideoController& vcontroller, SDL_Renderer* renderer)
-{
-	vcontroller.displayBuffer = SDL_CreateTexture(renderer,
-		SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, SCREEN_WIDTH, SCREEN_HEIGHT);
-}
-
-void videocontroller::copyVRAMToBuffer(VideoController& vcontroller)
-{
-
-}

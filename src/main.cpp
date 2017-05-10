@@ -15,12 +15,6 @@ int main(int argc, char **argv)
 	const int tileDebugSize = 16 * 8;
 	SDL_Window* debugTileWindow = NULL;
 
-	CPU cpu;
-	cpu.PC = 0;
-	cpu.registers.F = 0;
-
-	cart::load(cpu.addresser.cart, "data/Tetris.gb");
-
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("SDL init failure! SDL_Error: %s\n", SDL_GetError());
 	}
@@ -43,14 +37,20 @@ int main(int argc, char **argv)
 			SDL_Texture* texture = SDL_CreateTexture(debugTileRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, tileDebugSize, tileDebugSize);
 			Uint32* debugTilePixels = new Uint32[tileDebugSize*tileDebugSize];
 		
-			int start, end;
-			int currentTick = 70224;
+		
+			CPU cpu;
+			cpu.PC = 0;
+			cpu.registers.F = 0;
+
+			cart::load(cpu.addresser.cart, "data/Tetris.gb");
+			gpu::init(cpu.addresser.gpu);
+
+			//used to refresh debug display every 70000 cycles;
+			int debugRefreshCycle = 0;
+
 
 			while (loop)
 			{
-				//we carry over the tick we overflow last frame
-				currentTick = currentTick - 70224;
-				start = SDL_GetTicks();
 				while (SDL_PollEvent(&event))
 				{
 					switch (event.type)
@@ -64,7 +64,7 @@ int main(int argc, char **argv)
 					}
 				}
 
-				while (cputick > 0 && currentTick < 70224)
+				if (cputick > 0)
 				{
 					int cycle = cpu::tick(cpu);
 
@@ -74,25 +74,35 @@ int main(int argc, char **argv)
 						cputick = 0;
 					}
 					else
-						currentTick += cycle;
-				}
-
-				SDL_RenderClear(debugTileRenderer);
-				//tile debug
-				for (int y = 0; y < 16; ++y)
-				{
-					for (int x = 0; x < 16; ++x)
 					{
-						graphic::drawTile(cpu, x * 8, y * 8, (y * 16) + x, debugTilePixels, tileDebugSize);
+						debugRefreshCycle += cycle;
+
+						if (gpu::tick(cpu.addresser.gpu, cycle))
+						{
+							//refresh display
+						}
 					}
 				}
+				else
+					debugRefreshCycle += 1;
 
-				SDL_UpdateTexture(texture, NULL, &debugTilePixels[0], tileDebugSize * 4);
-				SDL_RenderCopy(debugTileRenderer, texture, NULL, NULL);
-				SDL_RenderPresent(debugTileRenderer);
+				if (debugRefreshCycle > 70000)
+				{
+					debugRefreshCycle -= 70000;
+					SDL_RenderClear(debugTileRenderer);
+					//tile debug
+					for (int y = 0; y < 16; ++y)
+					{
+						for (int x = 0; x < 16; ++x)
+						{
+							graphic::drawTile(cpu, x * 8, y * 8, (y * 16) + x, debugTilePixels, tileDebugSize);
+						}
+					}
 
-				end = SDL_GetTicks();
-				//printf("Frame time %i \n", (end - start));
+					SDL_UpdateTexture(texture, NULL, &debugTilePixels[0], tileDebugSize * 4);
+					SDL_RenderCopy(debugTileRenderer, texture, NULL, NULL);
+					SDL_RenderPresent(debugTileRenderer);
+				}
 			}
 		}
 	}
