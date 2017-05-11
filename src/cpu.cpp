@@ -54,6 +54,19 @@ inline u8 DEC8(CPU* cpu, u8 value)
 	return value - 1;
 }
 
+//do a + b
+inline u8 ADD(CPU* cpu, u8 a, u8 b)
+{
+	BITCLEAR(cpu->registers.F, SUBSTRACT_FLAG_BIT);
+	HALF_CARRY_TEST_ADD(a, b) != 0 ? BITSET(cpu->registers.F, HALF_CARRY_FLAG_BIT) : BITCLEAR(cpu->registers.F, HALF_CARRY_FLAG_BIT);
+	a + b == (u8)0x0 ? BITSET(cpu->registers.F, ZERO_FLAG_BIT) : BITCLEAR(cpu->registers.F, ZERO_FLAG_BIT);
+
+	a + b > 0xFF ? BITSET(cpu->registers.F, CARRY_FLAG_BIT) : BITCLEAR(cpu->registers.F, CARRY_FLAG_BIT);
+
+	return a + b;
+}
+
+
 //do a - b
 inline u8 SUB(CPU* cpu, u8 a, u8 b)
 {
@@ -100,8 +113,6 @@ int extendedDecode(CPU* cpu, u8 opcode)
 
 int decode(CPU* cpu, u8 opcode)
 {
-	//printf("Decoding %hhX\n", opcode);
-
 	//probably can do without, but too lazy to think about it
 	u8 buffer;
 
@@ -155,6 +166,11 @@ int decode(CPU* cpu, u8 opcode)
 	case 0x15: //DEC D
 		cpu->registers.D = DEC8(cpu, cpu->registers.D);
 		cycle = 4;
+		break;
+	case 0x16: //LD D,d8
+		cpu->registers.D = motherboard::fetchu8(cpu->mb, cpu->PC);
+		cpu->PC += 1;
+		cycle = 8;
 		break;
 	case 0x17://RL A (rotate left, carry goes to bit 0 and bit 7 goes to carry)
 		buffer = BITTEST(cpu->registers.A, 7);
@@ -281,6 +297,18 @@ int decode(CPU* cpu, u8 opcode)
 		motherboard::writeu8(cpu->mb, cpu->registers.HL, cpu->registers.A);
 		cycle = 8;
 		break;
+	case 0x78: //LD A,B
+		cpu->registers.A = cpu->registers.B;
+		cycle = 4;
+		break;
+	case 0x79: //LD A,C
+		cpu->registers.A = cpu->registers.C;
+		cycle = 4;
+		break;
+	case 0x7A: //LD A,D
+		cpu->registers.A = cpu->registers.D;
+		cycle = 4;
+		break;
 	case 0x7B: //LD A, E
 		cpu->registers.A = cpu->registers.E;
 		cycle = 4;
@@ -288,6 +316,14 @@ int decode(CPU* cpu, u8 opcode)
 	case 0x7C: //LD A,H
 		cpu->registers.A = cpu->registers.H;
 		cycle = 4;
+		break;
+	case 0x7D : //LD A,L
+		cpu->registers.A = cpu->registers.L;
+		cycle = 4;
+		break;
+	case 0x86: //ADD A,(HL)
+		cpu->registers.A = ADD(cpu, cpu->registers.A, motherboard::fetchu8(cpu->mb, cpu->registers.HL));
+		cycle = 8;
 		break;
 	case 0x90: // SUB B
 		cpu->registers.A = SUB(cpu, cpu->registers.A, cpu->registers.B);
@@ -297,6 +333,10 @@ int decode(CPU* cpu, u8 opcode)
 		cpu->registers.A ^= cpu->registers.A;
 		cpu->registers.A == 0 ? BITSET(cpu->registers.F, ZERO_FLAG_BIT) : BITCLEAR(cpu->registers.F, ZERO_FLAG_BIT);
 		cycle = 4;
+		break;
+	case 0xBE: //CP (HL)
+		CPAn(cpu, motherboard::fetchu8(cpu->mb, cpu->registers.HL));
+		cycle = 8;
 		break;
 	case 0xC1: //pop BC
 		cpu->registers.BC = stackPop(cpu);
@@ -354,6 +394,9 @@ int decode(CPU* cpu, u8 opcode)
 
 int cpu::tick(CPU* cpu)
 {
+	if (cpu->PC == 0xf9)
+		printf("break");
+
 	u8 opcode = motherboard::fetchu8(cpu->mb, cpu->PC);
 	cpu->PC += 1;
 
