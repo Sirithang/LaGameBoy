@@ -16,10 +16,17 @@ static u8 g_bootstrap[] =
 	134, 35, 5, 32, 251, 134, 32, 254, 62, 1, 224, 80, 0
 };
 
+//used to allow writing to "forbidden" place, as some game do write on forbidden place...
+u16 dummyMemory;
+
 inline u8* fetchMemory(Motherboard* motherboard, u16 address)
-{	if (address <= 0xFF)
+{	
+	if (address <= 0xFF)
 	{
-		return &g_bootstrap[address];
+		if(motherboard->internalMemory.IORegister[0x50])
+			return cart::address(&motherboard->cart, address);
+		else
+			return &g_bootstrap[address];		
 	}
 	else if(address <= 0x7FFF)
 	{
@@ -39,7 +46,8 @@ inline u8* fetchMemory(Motherboard* motherboard, u16 address)
 	}
 	else if (address <= 0xFDFF)
 	{//ECHO ram
-		printf("Writing/Reading to ECHo RAM, Handle that shit later\n");
+		//TODO : handle echo ram?
+		return (u8*)&dummyMemory;
 	}
 	else if (address <= 0xFE9F)
 	{
@@ -47,7 +55,7 @@ inline u8* fetchMemory(Motherboard* motherboard, u16 address)
 	}
 	else if (address <= 0xFEFF)
 	{
-		printf("Non usable address space you dummy.\n");
+		return (u8*)&dummyMemory;
 	}
 	else if (address <= 0xFF7F)
 	{
@@ -112,6 +120,9 @@ void motherboard::init(Motherboard* motherboard)
 {
 	motherboard->cpu.mb = motherboard;
 	motherboard->gpu.mb = motherboard;
+
+	//enable DMG rom
+	motherboard->internalMemory.IORegister[0x50] = 0;
 
 	SDL_zero(motherboard->internalMemory.IORegister);
 }

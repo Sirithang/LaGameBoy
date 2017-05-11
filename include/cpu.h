@@ -53,6 +53,8 @@ struct CPU
 	u16 SP;
 	u16 PC;
 
+	u8 interruptEnabled;
+
 	Motherboard* mb;
 };
 

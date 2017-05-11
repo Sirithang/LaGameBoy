@@ -51,6 +51,7 @@ bool gpu::tick(GPU* gpu, int tickCount)
 			if (gpu->currentLine == 143)
 			{//go into VBLANK
 				gpu->currentState = 1;
+				BITSET(gpu->mb->internalMemory.IORegister[0x0F], 0);
 				dirty = true;
 			}
 			else
