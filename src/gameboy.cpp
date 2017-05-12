@@ -132,6 +132,12 @@ u8 motherboard::fetchu8(Motherboard* controller, u16 address)
 	return *fetchMemory(controller, address);
 }
 
+u8* motherboard::fetchu8p(Motherboard* controller, u16 address)
+{
+	return fetchMemory(controller, address);
+}
+
+
 s8 motherboard::fetchs8(Motherboard* controller, u16 address)
 {
 	return *fetchMemory(controller, address);

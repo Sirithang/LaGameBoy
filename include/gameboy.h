@@ -47,6 +47,10 @@ namespace motherboard
 	s8 fetchs8(Motherboard* motherboard, u16 address);
 	u16 fetchu16(Motherboard* motherboard, u16 address);
 
+	//pointer version of the fetch, allow direct modification of data (no duplication)
+	//mainly use by opcode helper macro
+	u8* fetchu8p(Motherboard* controller, u16 address);
+
 	void writeu8(Motherboard* motherboard, u16 address, u8 value);
 	void writeu16(Motherboard* motherboard, u16 address, u16 value);
 

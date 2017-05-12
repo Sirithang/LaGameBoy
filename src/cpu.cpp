@@ -98,67 +98,150 @@ inline u16 ADD(CPU* cpu, u16 a, u16 b)
 	return a + b;
 }
 
+inline u8 RL(CPU* cpu, u8 value)
+{
+	u8 ret = value;
+
+	ret = ret << 1;
+
+	cpu->registers.F = 0;
+	BITTEST(cpu->registers.F, CARRY_FLAG_BIT) == 0 ? BITCLEAR(ret, 0) : BITSET(ret, 0);
+	BITTEST(value, 7) == 0 ? BITCLEAR(cpu->registers.F, CARRY_FLAG_BIT) : BITSET(cpu->registers.F, CARRY_FLAG_BIT);
+
+	ret == (u8)0x0 ? BITSET(cpu->registers.F, ZERO_FLAG_BIT) : BITCLEAR(cpu->registers.F, ZERO_FLAG_BIT);
+
+	return ret;
+}
+
+inline u8 RES(CPU* cpu, u8 value, u8 bit)
+{
+	u8 ret = value;
+	BITCLEAR(ret, bit);
+	return ret;
+}
+
+inline u8 SRL(CPU* cpu, u8 value)
+{
+	u8 ret = value;
+	cpu->registers.F = 0;
+	if ((ret & 0x1) != 0) BITSET(cpu->registers.F, CARRY_FLAG_BIT);
+	ret = ret >> 1;
+	if (ret == 0x0) BITSET(cpu->registers.F, ZERO_FLAG_BIT);
+	return ret;
+}
+
+inline void BIT(CPU* cpu, u8 value, u8 bit)
+{
+	BITSET(cpu->registers.F, HALF_CARRY_FLAG_BIT);
+	BITCLEAR(cpu->registers.F, SUBSTRACT_FLAG_BIT);
+
+	BITTEST(value, bit) == 0 ? BITSET(cpu->registers.F, ZERO_FLAG_BIT) : BITCLEAR(cpu->registers.F, ZERO_FLAG_BIT);
+}
+
 int extendedDecode(CPU* cpu, u8 opcode)
 {
 	//probably can do without, but too lazy to think about it
 	u8 buffer;
 	int cycle = -1;
 
-	switch (opcode)
+	u8 dest = opcode & 0x7;
+	u8 cleanOpcode = opcode & (~dest);
+
+	//switch (opcode)
+	//{
+	//case 0x11://RL C (rotate left, carry goes to bit 0 and bit 7 goes to carry)
+	//	buffer = BITTEST(cpu->registers.C, 7);
+	//	cpu->registers.C = cpu->registers.C << 1;
+
+	//	cpu->registers.F = 0;
+	//	BITTEST(cpu->registers.F, CARRY_FLAG_BIT) == 0 ? BITCLEAR(cpu->registers.C, 0) : BITSET(cpu->registers.C, 0);
+	//	buffer == 0 ? BITCLEAR(cpu->registers.F, CARRY_FLAG_BIT) : BITSET(cpu->registers.F, CARRY_FLAG_BIT);
+
+	//	cpu->registers.C == (u8)0x0 ? BITSET(cpu->registers.F, ZERO_FLAG_BIT) : BITCLEAR(cpu->registers.F, ZERO_FLAG_BIT);
+	//	cycle = 8;
+	//	break;
+	//case 0x30://SWAP B
+	//	cpu->registers.B = SWAP(cpu, cpu->registers.B);
+	//	cycle = 8;
+	//	break;
+	//case 0x31://SWAP C
+	//	cpu->registers.C = SWAP(cpu, cpu->registers.C);
+	//	cycle = 8;
+	//	break;
+	//case 0x32://SWAP D
+	//	cpu->registers.D = SWAP(cpu, cpu->registers.D);
+	//	cycle = 8;
+	//	break;
+	//case 0x33://SWAP E
+	//	cpu->registers.E = SWAP(cpu, cpu->registers.E);
+	//	cycle = 8;
+	//	break;
+	//case 0x34://SWAP H
+	//	cpu->registers.H = SWAP(cpu, cpu->registers.H);
+	//	cycle = 8;
+	//	break;
+	//case 0x35://SWAP L
+	//	cpu->registers.L = SWAP(cpu, cpu->registers.L);
+	//	cycle = 8;
+	//	break;
+	//case 0x36://SWAP (HL)
+	//	motherboard::writeu8(cpu->mb, cpu->registers.HL, SWAP(cpu, motherboard::fetchu8(cpu->mb, cpu->registers.HL)));
+	//	cycle = 16;
+	//	break;
+	//case 0x37://SWAP A
+	//	cpu->registers.A = SWAP(cpu, cpu->registers.A);
+	//	cycle = 8;
+	//	break;
+	//case 0x3D://SRL L
+	//	cpu->registers.F = 0;
+	//	if ((cpu->registers.L & 0x1) != 0) BITSET(cpu->registers.F, CARRY_FLAG_BIT);
+	//	cpu->registers.L = cpu->registers.L >> 1;
+	//	if (cpu->registers.L == 0x0) BITSET(cpu->registers.F, ZERO_FLAG_BIT);
+	//	cycle = 8;
+	//	break;
+	//case 0x7C: //BIT 7, H
+	//	BITSET(cpu->registers.F, HALF_CARRY_FLAG_BIT);
+	//	BITCLEAR(cpu->registers.F, SUBSTRACT_FLAG_BIT);
+
+	//	BITTEST(cpu->registers.H, 7) == 0 ? BITSET(cpu->registers.F, ZERO_FLAG_BIT) : BITCLEAR(cpu->registers.F, ZERO_FLAG_BIT);
+	//	cycle = 8;
+	//	break;
+	//case 0x87 : //RES 0,A
+	//	BITCLEAR(cpu->registers.A, 0);
+	//	cycle = 8;
+	//	break;
+	//case 0xA8: //RES 5,B
+	//	BITCLEAR(cpu->registers.B, 5);
+	//	cycle = 8;
+	//	break;
+	//case 0xF3: //SET 6,E
+	//	BITSET(cpu->registers.E, 6);
+	//	cycle = 8;
+	//	break;
+	//default:
+	//	printf("unknown EXTENDED opcode %hhX at address %hX \n", opcode, cpu->PC - 1);
+	//	break;
+	//}
+
+	switch (cleanOpcode)
 	{
-	case 0x11://RL C (rotate left, carry goes to bit 0 and bit 7 goes to carry)
-		buffer = BITTEST(cpu->registers.C, 7);
-		cpu->registers.C = cpu->registers.C << 1;
-
-		cpu->registers.F = 0;
-		BITTEST(cpu->registers.F, CARRY_FLAG_BIT) == 0 ? BITCLEAR(cpu->registers.C, 0) : BITSET(cpu->registers.C, 0);
-		buffer == 0 ? BITCLEAR(cpu->registers.F, CARRY_FLAG_BIT) : BITSET(cpu->registers.F, CARRY_FLAG_BIT);
-
-		cpu->registers.C == (u8)0x0 ? BITSET(cpu->registers.F, ZERO_FLAG_BIT) : BITCLEAR(cpu->registers.F, ZERO_FLAG_BIT);
-		cycle = 8;
+	case 0x10://RL dest
+		FUNC_ON_REGISTER_ASSIGN(RL, dest, 8, 16);
 		break;
-	case 0x30://SWAP B
-		cpu->registers.B = SWAP(cpu, cpu->registers.B);
-		cycle = 8;
+	case 0x30://SWAP dest
+		FUNC_ON_REGISTER_ASSIGN(SWAP, dest, 8, 16);
 		break;
-	case 0x31://SWAP C
-		cpu->registers.C = SWAP(cpu, cpu->registers.C);
-		cycle = 8;
+	case 0x38://SRL dest
+		FUNC_ON_REGISTER_ASSIGN(SRL, dest, 8, 16);
 		break;
-	case 0x32://SWAP D
-		cpu->registers.D = SWAP(cpu, cpu->registers.D);
-		cycle = 8;
+	case 0x78://BIT 7, dest
+		FUNC_ON_REGISTER_PARAM(BIT, dest, 7, 8, 16);
 		break;
-	case 0x33://SWAP E
-		cpu->registers.E = SWAP(cpu, cpu->registers.E);
-		cycle = 8;
+	case 0x80://RES 0, dest
+		FUNC_ON_REGISTER_PARAM_ASSIGN(RES, dest, 0, 8, 16);
 		break;
-	case 0x34://SWAP H
-		cpu->registers.H = SWAP(cpu, cpu->registers.H);
-		cycle = 8;
-		break;
-	case 0x35://SWAP L
-		cpu->registers.L = SWAP(cpu, cpu->registers.L);
-		cycle = 8;
-		break;
-	case 0x36://SWAP (HL)
-		motherboard::writeu8(cpu->mb, cpu->registers.HL, SWAP(cpu, motherboard::fetchu8(cpu->mb, cpu->registers.HL)));
-		cycle = 16;
-		break;
-	case 0x37://SWAP A
-		cpu->registers.A = SWAP(cpu, cpu->registers.A);
-		cycle = 8;
-		break;
-	case 0x7C: //BIT 7, H
-		BITSET(cpu->registers.F, HALF_CARRY_FLAG_BIT);
-		BITCLEAR(cpu->registers.F, SUBSTRACT_FLAG_BIT);
-
-		BITTEST(cpu->registers.H, 7) == 0 ? BITSET(cpu->registers.F, ZERO_FLAG_BIT) : BITCLEAR(cpu->registers.F, ZERO_FLAG_BIT);
-		cycle = 8;
-		break;
-	case 0x87 : //RES 0,A
-		BITCLEAR(cpu->registers.A, 0);
-		cycle = 8;
+	case 0xA8://RES 5,dest
+		FUNC_ON_REGISTER_PARAM_ASSIGN(RES, dest, 5, 8, 16);
 		break;
 	default:
 		printf("unknown EXTENDED opcode %hhX at address %hX \n", opcode, cpu->PC - 1);
@@ -879,6 +962,16 @@ int decode(CPU* cpu, u8 opcode)
 		cpu->PC = stackPop(cpu);
 		cycle = 16;
 		break;
+	case 0xCA: //JP Z,a16
+		if (BITTEST(cpu->registers.F, ZERO_FLAG_BIT) != 0)
+		{
+			cpu->PC = motherboard::fetchu16(cpu->mb, cpu->PC);
+			cycle = 16;
+		}
+		else
+		{
+			cycle = 12;
+		}
 	case 0xCB://extended opcode
 		cpu->PC++;
 		return extendedDecode(cpu, motherboard::fetchu8(cpu->mb, cpu->PC-1));

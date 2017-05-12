@@ -1,5 +1,6 @@
 #pragma once
 
+
 const int SCREEN_WIDTH = 160;
 const int SCREEN_HEIGHT = 144;
 
@@ -24,3 +25,157 @@ const u8 CARRY_FLAG_BIT = 4;
 
 //if pos == 0 extratc the 2 leftmost bit, if 2, the 2 next etc.
 #define EXTRACT2BIT(byte, pos) ((byte & (0x3<<pos)) >> (pos))
+
+
+//==== UGLY huge MACRO for operation on all registry using the opcode destination info (last 3 bit)
+
+//that will take a func(cpu, u8).
+#define FUNC_ON_REGISTER(func, dest, cycleReg, cycleMem) \
+switch(dest)\
+{\
+case 0x0:\
+func(cpu, cpu->registers.B);\
+cycle = cycleReg;\
+break;\
+case 0x1:\
+func(cpu, cpu->registers.C); \
+cycle = cycleReg;\
+break; \
+case 0x2:\
+func(cpu, cpu->registers.D);\
+cycle = cycleReg;\
+break;\
+case 0x3:\
+func(cpu, cpu->registers.E);\
+cycle = cycleReg;\
+break;\
+case 0x4:\
+func(cpu, cpu->registers.H);\
+cycle = cycleReg;\
+break;\
+case 0x5:\
+func(cpu, cpu->registers.L);\
+cycle = cycleReg;\
+break;\
+case 0x6:\
+func(cpu, motherboard::fetchu8(cpu->mb, cpu->registers.HL));\
+cycle = cycleMem;\
+break;\
+case 0x7:\
+func(cpu, cpu->registers.A);\
+cycle = cycleReg;\
+break;\
+}
+
+#define FUNC_ON_REGISTER_PARAM(func, dest, param, cycleReg, cycleMem) \
+switch(dest)\
+{\
+case 0x0:\
+func(cpu, cpu->registers.B, param);\
+cycle = cycleReg;\
+break;\
+case 0x1:\
+func(cpu, cpu->registers.C, param); \
+cycle = cycleReg;\
+break; \
+case 0x2:\
+func(cpu, cpu->registers.D, param);\
+cycle = cycleReg;\
+break;\
+case 0x3:\
+func(cpu, cpu->registers.E, param);\
+cycle = cycleReg;\
+break;\
+case 0x4:\
+func(cpu, cpu->registers.H, param);\
+cycle = cycleReg;\
+break;\
+case 0x5:\
+func(cpu, cpu->registers.L, param);\
+cycle = cycleReg;\
+break;\
+case 0x6:\
+func(cpu, motherboard::fetchu8(cpu->mb, cpu->registers.HL), param);\
+cycle = cycleMem;\
+break;\
+case 0x7:\
+func(cpu, cpu->registers.A, param);\
+cycle = cycleReg;\
+break;\
+}
+
+//that will take a func(cpu, u8).
+#define FUNC_ON_REGISTER_ASSIGN(func, dest, cycleReg, cycleMem) \
+switch(dest)\
+{\
+case 0x0:\
+cpu->registers.B = func(cpu, cpu->registers.B);\
+cycle = cycleReg;\
+break;\
+case 0x1:\
+cpu->registers.C = func(cpu, cpu->registers.C); \
+cycle = cycleReg;\
+break; \
+case 0x2:\
+cpu->registers.D = func(cpu, cpu->registers.D);\
+cycle = cycleReg;\
+break;\
+case 0x3:\
+cpu->registers.E = func(cpu, cpu->registers.E);\
+cycle = cycleReg;\
+break;\
+case 0x4:\
+cpu->registers.H = func(cpu, cpu->registers.H);\
+cycle = cycleReg;\
+break;\
+case 0x5:\
+cpu->registers.L = func(cpu, cpu->registers.L);\
+cycle = cycleReg;\
+break;\
+case 0x6:\
+motherboard::writeu8(cpu->mb, cpu->registers.HL, func(cpu, motherboard::fetchu8(cpu->mb, cpu->registers.HL)));\
+cycle = cycleMem;\
+break;\
+case 0x7:\
+cpu->registers.A = func(cpu, cpu->registers.A);\
+cycle = cycleReg;\
+break;\
+}
+
+//that will take a func(cpu, u8).
+#define FUNC_ON_REGISTER_PARAM_ASSIGN(func, dest, param, cycleReg, cycleMem) \
+switch(dest)\
+{\
+case 0x0:\
+cpu->registers.B = func(cpu, cpu->registers.B,param);\
+cycle = cycleReg;\
+break;\
+case 0x1:\
+cpu->registers.C = func(cpu, cpu->registers.C,param); \
+cycle = cycleReg;\
+break; \
+case 0x2:\
+cpu->registers.D = func(cpu, cpu->registers.D,param);\
+cycle = cycleReg;\
+break;\
+case 0x3:\
+cpu->registers.E = func(cpu, cpu->registers.E,param);\
+cycle = cycleReg;\
+break;\
+case 0x4:\
+cpu->registers.H = func(cpu, cpu->registers.H,param);\
+cycle = cycleReg;\
+break;\
+case 0x5:\
+cpu->registers.L = func(cpu, cpu->registers.L,param);\
+cycle = cycleReg;\
+break;\
+case 0x6:\
+motherboard::writeu8(cpu->mb, cpu->registers.HL, func(cpu, motherboard::fetchu8(cpu->mb, cpu->registers.HL),param));\
+cycle = cycleMem;\
+break;\
+case 0x7:\
+cpu->registers.A = func(cpu, cpu->registers.A, param);\
+cycle = cycleReg;\
+break;\
+}
