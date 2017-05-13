@@ -16,6 +16,12 @@ struct DebugDisplay
 	Uint32* pixels;
 };
 
+struct CallHistory
+{
+	u16 PCHistory[256];
+	u8 currentCall;
+};
+
 namespace debugger
 {
 	void createDebugDisplay(DebugDisplay* display, const char* title, int w, int h, int zoom);

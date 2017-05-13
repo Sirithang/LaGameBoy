@@ -13,8 +13,8 @@ const u8 SUBSTRACT_FLAG_BIT = 6;
 const u8 HALF_CARRY_FLAG_BIT = 5;
 const u8 CARRY_FLAG_BIT = 4;
 
-//return 0 if bit is not 1 in value
-#define BITTEST(value,bit) ((value) & (1<<(bit)))
+//return 0 if bit is not 1 in value, otherwise return 1
+#define BITTEST(value,bit) (((value) & (1<<(bit))) == 0 ? 0 : 1)
 #define BITSET(value,bit) value |= 1 << bit
 #define BITCLEAR(value,bit) value &= ~(1 << bit)
 

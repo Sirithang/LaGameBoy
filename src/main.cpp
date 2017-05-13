@@ -26,6 +26,7 @@ int main(int argc, char **argv)
 		debugger::createDebugDisplay(&bgmapDisplay, "BG 0", 256, 256, 2);
 		u8 currentBg = 0;
 
+		CallHistory callHistory;
 
 		window = SDL_CreateWindow("La GameBoy", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH*2, SCREEN_HEIGHT*2, SDL_WINDOW_SHOWN);
 
@@ -54,7 +55,7 @@ int main(int argc, char **argv)
 
 			//used to refresh debug display every 70000 cycles;
 			int debugRefreshCycle = 0;
-
+			callHistory.currentCall = 0;
 
 			while (loop)
 			{
@@ -104,6 +105,9 @@ int main(int argc, char **argv)
 
 				if (cputick > 0)
 				{
+					callHistory.PCHistory[callHistory.currentCall] = mb.cpu.PC;
+					callHistory.currentCall++;
+
 					int cycle = cpu::tick(&mb.cpu);
 
 					if (cycle < 0)

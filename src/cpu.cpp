@@ -82,6 +82,9 @@ int extendedDecode(CPU* cpu, u8 opcode)
 	case 0xB8:
 		FUNC_ON_REGISTER_PARAM_ASSIGN(RES, dest, 7, 8, 16);
 		break;
+	case 0xD8://SET 3,dest
+		FUNC_ON_REGISTER_PARAM_ASSIGN(SET, dest, 3, 8, 16);
+		break;
 	case 0xF0://SET 6, dest
 		FUNC_ON_REGISTER_PARAM_ASSIGN(SET, dest, 6, 8, 16);
 		break;
@@ -220,6 +223,10 @@ int decode(CPU* cpu, u8 opcode)
 		cpu->registers.A = motherboard::fetchu8(cpu->mb, cpu->registers.DE);
 		cycle = 8;
 		break;
+	case 0x1B: // DEC DE
+		cpu->registers.DE -= 1;
+		cycle = 8;
+		break;
 	case 0x1C://INC E
 		cpu->registers.E = INC8(cpu, cpu->registers.E);
 		cycle = 4;
@@ -299,6 +306,10 @@ int decode(CPU* cpu, u8 opcode)
 		cpu->registers.HL += 1;
 		cycle = 8;
 		break;
+	case 0x2B: //DEC HL
+		cpu->registers.HL -= 1;
+		cycle = 8;
+		break;
 	case 0x2C: //INC L
 		cpu->registers.L = INC8(cpu, cpu->registers.L);
 		cycle = 4;
@@ -358,6 +369,19 @@ int decode(CPU* cpu, u8 opcode)
 		motherboard::writeu8(cpu->mb, cpu->registers.HL, motherboard::fetchu8(cpu->mb, cpu->PC));
 		cpu->PC += 1;
 		cycle = 12;
+		break;
+	case 0x38: //JR C,r8
+		if (BITTEST(cpu->registers.F, CARRY_FLAG_BIT) != 0)
+		{
+			//+1 because we didn't advance after the fetch
+			cpu->PC += motherboard::fetchs8(cpu->mb, cpu->PC) + 1;
+			cycle = 12;
+		}
+		else
+		{
+			cpu->PC += 1;
+			cycle = 8;
+		}
 		break;
 	case 0x39: //ADD HL, SP
 		cpu->registers.HL = ADD(cpu, cpu->registers.HL, cpu->SP);
@@ -699,6 +723,34 @@ int decode(CPU* cpu, u8 opcode)
 		break;
 	case 0x90: // SUB B
 		cpu->registers.A = SUB(cpu, cpu->registers.A, cpu->registers.B);
+		cycle = 4;
+		break;
+	case 0x91: // SUB C
+		cpu->registers.A = SUB(cpu, cpu->registers.A, cpu->registers.C);
+		cycle = 4;
+		break;
+	case 0x92: // SUB D
+		cpu->registers.A = SUB(cpu, cpu->registers.A, cpu->registers.D);
+		cycle = 4;
+		break;
+	case 0x93: // SUB E
+		cpu->registers.A = SUB(cpu, cpu->registers.A, cpu->registers.E);
+		cycle = 4;
+		break;
+	case 0x94: // SUB H
+		cpu->registers.A = SUB(cpu, cpu->registers.A, cpu->registers.H);
+		cycle = 4;
+		break;
+	case 0x95: // SUB L
+		cpu->registers.A = SUB(cpu, cpu->registers.A, cpu->registers.L);
+		cycle = 4;
+		break;
+	case 0x96: // SUB (HL)
+		cpu->registers.A = SUB(cpu, cpu->registers.A, motherboard::fetchu8(cpu->mb, cpu->registers.HL));
+		cycle = 8;
+		break;
+	case 0x97: // SUB A
+		cpu->registers.A = SUB(cpu, cpu->registers.A, cpu->registers.A);
 		cycle = 4;
 		break;
 	case 0xA0: // AND B
