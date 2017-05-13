@@ -194,7 +194,7 @@ u8* internalmemory::ioRegisterAccess(InternalMemory* intmem, u16 address, u8 wri
 	case 0xFF00://INPUT
 		if (write)
 		{//we let write even on readonly, as it won't change any value anyway
-			&intmem->IORegister[0x00];
+			return &intmem->IORegister[0x00];
 		}
 		else
 		{//on read, we return the right value depending on what was asked
@@ -279,9 +279,9 @@ u8* internalmemory::ioRegisterAccess(InternalMemory* intmem, u16 address, u8 wri
 	case 0xFF46:// DMA transfer required
 		if (write)
 		{//let the program write to it, the DMA will use it
-			&intmem->IORegister[0x44];
 			//tell the motherboard a DMA transfer was required
 			intmem->mb->DMARequested = 1;
+			return &intmem->IORegister[0x46];
 		}
 		break;
 	default:

@@ -50,7 +50,7 @@ int extendedDecode(CPU* cpu, u8 opcode)
 	case 0x40: //BIT 0, dest
 		FUNC_ON_REGISTER_PARAM(BIT, dest, 0, 8, 16);
 		break;
-	case 0x48: //BIT 0, dest
+	case 0x48: //BIT 1, dest
 		FUNC_ON_REGISTER_PARAM(BIT, dest, 1, 8, 16);
 		break;
 	case 0x50 : //BIT 2, dest
@@ -78,6 +78,9 @@ int extendedDecode(CPU* cpu, u8 opcode)
 		FUNC_ON_REGISTER_PARAM_ASSIGN(RES, dest, 3, 8, 16);
 	case 0xA8://RES 5,dest
 		FUNC_ON_REGISTER_PARAM_ASSIGN(RES, dest, 5, 8, 16);
+		break;
+	case 0xB8:
+		FUNC_ON_REGISTER_PARAM_ASSIGN(RES, dest, 7, 8, 16);
 		break;
 	case 0xF0://SET 6, dest
 		FUNC_ON_REGISTER_PARAM_ASSIGN(SET, dest, 6, 8, 16);
@@ -1130,7 +1133,7 @@ int cpu::tick(CPU* cpu)
 		SDL_memcpy(
 			motherboard::fetchu8p(cpu->mb, 0xFE00),
 			motherboard::fetchu8p(cpu->mb, cpu->mb->internalMemory.IORegister[0x46] * 0x100),
-			(0x9F + 1) * sizeof(u8));
+			(0xA0) * sizeof(u8));
 	}
 
 	u8 interruptCycle = checkInterrupts(cpu);

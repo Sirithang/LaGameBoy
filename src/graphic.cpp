@@ -96,6 +96,8 @@ bool gpu::tick(GPU* gpu, int tickCount)
 
 void gpu::renderLine(GPU* gpu, u8 line)
 {
+	u8* OAM = &gpu->mb->internalMemory.OAM[0];
+
 	u8 scrollY = motherboard::fetchu8(gpu->mb, 0xFF42);
 	u8 scrollX = motherboard::fetchu8(gpu->mb, 0xFF43);
 
@@ -111,7 +113,69 @@ void gpu::renderLine(GPU* gpu, u8 line)
 	u8 tileY = correctedY - yTileIdx * 8;
 	u8 tileX = correctedX - xTileIdx * 8;
 
-	u8 paletteByte = motherboard::fetchu8(gpu->mb, 0xFF47);
+	u8 bgPalette = gpu->mb->internalMemory.IORegister[0x47];
+	u8 spritePalette = gpu->mb->internalMemory.IORegister[0x48];
+
+	// For each pixel we store which sprite number(0-40) should be displayed here.
+	u8 pxielSpritesBuffer[SCREEN_WIDTH];
+	SDL_memset(pxielSpritesBuffer, 0xFF, sizeof(u8) * SCREEN_WIDTH);
+
+	if (BITTEST(gpu->mb->internalMemory.IORegister[0x40], 1) != 0)
+	{//if bit 1 of 0xff40 isn't set, sprite display is disabled
+		//=== Fetch all sprite on that line.
+
+		u8 spriteHeight = BITTEST(gpu->mb->internalMemory.IORegister[0x40], 2) == 0 ? 8 : 16;
+		u8 spriteCount = 0;
+		for (int s = 0; s < 40 && spriteCount < 10; ++s)
+		{
+			u8 ySpr = OAM[s * 4];
+			if (ySpr == 0) continue;//0 pos sprite are hidden
+
+			u8 yDiff = ySpr - line - (spriteHeight > 8 ? 0 : 8);
+
+			if (yDiff >= 0 && (yDiff < spriteHeight))
+			{
+				spriteCount++; //one sprite displayed!
+				u8 xSpr = OAM[s * 4 + 1];
+				u8 sprNum = OAM[s * 4 + 2];
+
+				for (int xSpriLine = 0; xSpriLine < 8; ++xSpriLine)
+				{
+					u8 pixX = xSpr - 8 + xSpriLine;
+					if (pixX < 0 || pixX >= SCREEN_WIDTH)
+						continue; //pixel outside of screen;
+
+					if (pxielSpritesBuffer[pixX] == 0xFF || OAM[pxielSpritesBuffer[pixX] * 4 + 1] > xSpr)
+					{//either no sprite on that line yet OR
+						pxielSpritesBuffer[pixX] = s;
+						u8 ySpriLine = spriteHeight - yDiff;
+
+						u8 attribute = OAM[s * 4 + 3];
+						if (BITTEST(attribute, 6) != 0x0) // Y Flip
+							ySpriLine = spriteHeight - 1 - ySpriLine;
+						if (BITTEST(attribute, 5) != 0x0) // X Flip
+							xSpriLine = 7 - xSpriLine;
+
+						u8 correctedSprNum = sprNum;
+						if (spriteHeight > 8)
+						{//need to correct sprite num if in 8x16
+							correctedSprNum = ySpriLine >= 8 ? sprNum & 0xFE : sprNum | 0x01;
+						}
+
+						u8 paletteIdx = graphic::fetchTilePixelPaletteIdx(gpu->mb, correctedSprNum, ySpriLine, xSpriLine);
+
+						if (paletteIdx != 0) //index 0 is transparent for sprite
+						{
+							u8 shade = EXTRACT2BIT(spritePalette, paletteIdx * 2);
+							gpu->buffer[(line * SCREEN_WIDTH) + pixX] = palette[shade];
+						}
+					}
+				}
+			}
+		}
+
+		//=== end of sprite writing and storing
+	}
 
 	//this will trigger the if condition in the for loop to compute tilenum for 1st pixel
 	xTileIdx++;
@@ -131,10 +195,26 @@ void gpu::renderLine(GPU* gpu, u8 line)
 		}
 
 		u8 paletteIdx = graphic::fetchTilePixelPaletteIdx(gpu->mb, tileNum, tileY, tileX);
-		u8 shade = EXTRACT2BIT(paletteByte, paletteIdx * 2);
+		u8 shade = EXTRACT2BIT(bgPalette, paletteIdx * 2);
 
 		int offset = (line * SCREEN_WIDTH) + x;
-		gpu->buffer[offset] = palette[shade];
+
+		if (pxielSpritesBuffer[x] != 0xFF)
+		{//there is a sprite pixel here, now need to know if set into above or below BG
+
+			if (paletteIdx != 0)
+			{//BG palette index 0 is always behind the sprite (i.e. consider it transparent)
+				u8 attribute = OAM[pxielSpritesBuffer[x] * 4 + 3];
+				if (BITTEST(attribute, 7) != 0x0)
+				{//this object is behind the BG so draw the BG
+					gpu->buffer[offset] = palette[shade];
+				}
+			}
+		}
+		else
+		{//no sprite here, just write BG color
+			gpu->buffer[offset] = palette[shade];
+		}
 
 		correctedX++;
 		tileX++;
