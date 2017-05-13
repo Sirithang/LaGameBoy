@@ -113,6 +113,55 @@ inline u8 RLC(CPU* cpu, u8 value, u8 setZeroFlag)
 	return ret;
 }
 
+//This is (shamefully) stolen from a forum post...
+inline void DAA(CPU* cpu)
+{
+	//store in a u16 to test for overflow more easily
+	u16 val = cpu->registers.A;
+
+	if (BITTEST(cpu->registers.F, SUBSTRACT_FLAG_BIT) == 0)
+	{
+		if (BITTEST(cpu->registers.F, HALF_CARRY_FLAG_BIT) != 0x0 || (val & 0xF) > 0x9)
+		{
+			val += 0x06;
+		}
+
+		if (BITTEST(cpu->registers.F, CARRY_FLAG_BIT) != 0x0 || val > 0x9F)
+		{
+			val += 0x50;
+		}
+	}
+	else
+	{
+		if (BITTEST(cpu->registers.F, HALF_CARRY_FLAG_BIT) != 0x0)
+		{
+			val = (val - 6) & 0xFF;
+		}
+
+		if (BITTEST(cpu->registers.F, CARRY_FLAG_BIT) != 0x0)
+		{
+			val -= 0x60;
+		}
+	}
+
+	BITCLEAR(cpu->registers.F, HALF_CARRY_FLAG_BIT);
+
+	if ((val & 0x100) == 0x100)
+		BITSET(cpu->registers.F, CARRY_FLAG_BIT);
+	else
+		BITCLEAR(cpu->registers.F, CARRY_FLAG_BIT);
+
+	//bring it back to u8
+	val &= 0xFF;
+
+	if (val == 0)
+		BITSET(cpu->registers.F, ZERO_FLAG_BIT);
+	else
+		BITCLEAR(cpu->registers.F, ZERO_FLAG_BIT);
+
+	cpu->registers.A = (u8)val;
+}
+
 inline u8 RRC(CPU* cpu, u8 value, u8 setZeroFlag)
 {
 	u8 ret = value;

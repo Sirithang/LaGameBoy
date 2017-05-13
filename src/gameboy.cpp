@@ -198,7 +198,7 @@ u8* internalmemory::ioRegisterAccess(InternalMemory* intmem, u16 address, u8 wri
 		}
 		else
 		{//on read, we return the right value depending on what was asked
-			if (BITTEST(intmem->IORegister[0x00], 5) == 0)
+			if (BITTEST(intmem->IORegister[0x00], 4) == 0)
 			{//asked for direction
 				dummy8bit = intmem->mb->inputState >> 4;
 			}
