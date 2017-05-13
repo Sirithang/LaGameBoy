@@ -35,7 +35,7 @@ void debugger::tileDataDebug(DebugDisplay* display, Motherboard* mb)
 	SDL_RenderPresent(display->renderer);
 }
 
-void debugger::bgmapDebug(DebugDisplay* display, Motherboard* mb)
+void debugger::bgmapDebug(DebugDisplay* display, Motherboard* mb, u8 bgNum)
 {
 	SDL_RenderClear(display->renderer);
 
@@ -47,7 +47,7 @@ void debugger::bgmapDebug(DebugDisplay* display, Motherboard* mb)
 		for (int x = 0; x < 32; ++x)
 		{
 			u16 tileIdx = y * 32 + x;
-			u8 tileNum = motherboard::fetchu8(mb, 0x9800 + tileIdx);
+			u8 tileNum = motherboard::fetchu8(mb, (bgNum == 0 ? 0x9800 : 0x9C00) + tileIdx);
 
 			graphic::drawTile(mb, x * 8, y * 8, tileNum, display->pixels, display->w);
 		}

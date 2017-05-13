@@ -15,6 +15,8 @@ struct InternalMemory
 	u8 IORegister[0x7F + 1];
 	u8 HRAM[0x7E + 1];
 	u8 InterruptRegister;
+
+	Motherboard* mb;
 };
 
 
@@ -30,6 +32,11 @@ struct Motherboard
 	CPU cpu;
 	GPU gpu;
 	Cart cart;
+	
+	//bit 0-3 are dir, bit 4-7 are button (same order than 0xff00 lower 4 bit)
+	u8 inputState;
+
+	u8 DMARequested;
 };
 
 namespace cart
@@ -55,4 +62,9 @@ namespace motherboard
 	void writeu16(Motherboard* motherboard, u16 address, u16 value);
 
 	void updateGPURegister(Motherboard* motherboard);
+}
+
+namespace internalmemory
+{
+	u8* ioRegisterAccess(InternalMemory* intmem, u16 address, u8 write);
 }

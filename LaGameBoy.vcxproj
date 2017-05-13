@@ -103,6 +103,9 @@
     <ClInclude Include="include\graphic.h" />
     <ClInclude Include="include\utils.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="include\opcodes.inl" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

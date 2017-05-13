@@ -39,6 +39,11 @@ bool gpu::tick(GPU* gpu, int tickCount)
 			gpu->currentTick -= 172;
 			gpu->currentState = 0;
 
+			if (BITTEST(gpu->mb->internalMemory.IORegister[0x41], 3) != 0x0)
+			{//STAT ask for start of HBLank interupt
+				BITSET(gpu->mb->internalMemory.IORegister[0x0F], 1);
+			}
+
 			gpu::renderLine(gpu, gpu->currentLine);
 		}
 		break;
@@ -52,6 +57,12 @@ bool gpu::tick(GPU* gpu, int tickCount)
 			{//go into VBLANK
 				gpu->currentState = 1;
 				BITSET(gpu->mb->internalMemory.IORegister[0x0F], 0);
+
+				if (BITTEST(gpu->mb->internalMemory.IORegister[0x41], 4) != 0x0)
+				{//STAT ask for start of VBLANK interupt
+					BITSET(gpu->mb->internalMemory.IORegister[0x0F], 1);
+				}
+
 				dirty = true;
 			}
 			else
@@ -70,6 +81,10 @@ bool gpu::tick(GPU* gpu, int tickCount)
 			{//finished VBlank, go back to scanline writing on top
 				gpu->currentLine = 0;
 				gpu->currentState = 2;
+				if (BITTEST(gpu->mb->internalMemory.IORegister[0x41], 5) != 0x0)
+				{//STAT ask for start of OAM interupt 
+					BITSET(gpu->mb->internalMemory.IORegister[0x0F], 1);
+				}
 			}
 		}
 	default:
@@ -97,6 +112,9 @@ void gpu::renderLine(GPU* gpu, u8 line)
 	u8 tileX = correctedX - xTileIdx * 8;
 
 	u8 paletteByte = motherboard::fetchu8(gpu->mb, 0xFF47);
+
+	//this will trigger the if condition in the for loop to compute tilenum for 1st pixel
+	xTileIdx++;
 
 	for (u8 x = 0; x < SCREEN_WIDTH; ++x)
 	{
@@ -128,7 +146,7 @@ void gpu::renderLine(GPU* gpu, u8 line)
 u8 graphic::fetchTilePixelPaletteIdx(Motherboard* mb, u8 tileNum, u8 pixelY, u8 pixelX)
 {
 	u8 leastByte = motherboard::fetchu8(mb, 0x8000 + tileNum * 16 + pixelY * 2);
-	u8 mostByte = motherboard::fetchu8(mb, 0x8000 + tileNum * 16 + pixelX * 2 + 1);
+	u8 mostByte = motherboard::fetchu8(mb, 0x8000 + tileNum * 16 + pixelY * 2 + 1);
 
 	u8 offset = 7 - pixelX;
 
@@ -142,6 +160,7 @@ void graphic::drawTile(Motherboard* motherboard, u16 x, u16 y, u8 tilenum, Uint3
 {
 	u8 paletteByte = motherboard::fetchu8(motherboard, 0xFF47);
 
+
 	for (u16 py = 0; py < 8; ++py)
 	{
 		u8 leastByte = motherboard::fetchu8(motherboard, 0x8000 + tilenum * 16 + py * 2);
@@ -151,8 +170,12 @@ void graphic::drawTile(Motherboard* motherboard, u16 x, u16 y, u8 tilenum, Uint3
 		{
 			u8 offset = 7 - px;
 
-			u8 paletteIdx = BITTEST(leastByte, offset) != 0 ? 0x1 : 0x0;
-			paletteIdx += BITTEST(mostByte, offset) != 0 ? 0x2 : 0x0;
+			//less effective than using the fetched byte above, but allow parity with actual emulation
+			//rendering, to show bugs
+			u8 paletteIdx = graphic::fetchTilePixelPaletteIdx(motherboard, tilenum, py, px);
+
+			/*u8 paletteIdx = BITTEST(leastByte, offset) != 0 ? 0x1 : 0x0;
+			paletteIdx += BITTEST(mostByte, offset) != 0 ? 0x2 : 0x0;*/
 
 			u8 shade = EXTRACT2BIT(paletteByte, paletteIdx * 2);
 			pixels[(y+py)*width + (x+px)] = palette[shade];
