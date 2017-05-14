@@ -25,13 +25,13 @@ inline u8* fetchMemory(Motherboard* motherboard, u16 address, u8 writing)
 	if (address <= 0xFF)
 	{
 		if(motherboard->internalMemory.IORegister[0x50])
-			return writing ? (u8*)&dummyMemory : cart::address(&motherboard->cart, address);
+			return writing ? (u8*)&dummyMemory : cart::address(&motherboard->cart, address, writing);
 		else
 			return &g_bootstrap[address];		
 	}
 	else if(address <= 0x7FFF)
 	{
-		return cart::address(&motherboard->cart, address);
+		return cart::address(&motherboard->cart, address, writing);
 	}
 	else if(address <= 0x9FFF)
 	{
@@ -39,7 +39,7 @@ inline u8* fetchMemory(Motherboard* motherboard, u16 address, u8 writing)
 	}
 	else if (address <= 0xBFFF)
 	{
-		return cart::address(&motherboard->cart, address);
+		return cart::address(&motherboard->cart, address, writing);
 	}
 	else if (address <= 0xDFFF)
 	{
@@ -108,11 +108,40 @@ void cart::load(Cart* cart, const char* path)
 	//Read file contents into buffer
 	fread(cart->content, fileLen, 1, file);
 	fclose(file);
+
+	cart->MBCType = cart->content[0x147];
+	cart->ROMBankNumber = 0x01;
 }
 
-u8* cart::address(Cart* cart, u16 address)
+u8* cart::address(Cart* cart, u16 address, u8 write)
 {
-	return cart->content + address;
+	if (write != 0)
+	{
+		if (address < 0x2000)
+		{
+			printf("unhandled RAM switch \n");
+		}
+		else if (address < 0x4000)
+		{
+			return &cart->ROMBankNumber;
+		}
+		else
+		{
+			printf("Unhandled writing to Cart ROM address %hx\n", address);
+		}
+		return &dummy8bit;
+	}
+	else
+	{
+		if(address < 0x4000 || cart->MBCType == 0)
+			return cart->content + address;
+		else
+		{
+			int bankNum = cart->ROMBankNumber == 0 ? 1 : cart->ROMBankNumber;
+
+			return cart->content + (address + (cart->ROMBankNumber - 1) * 0x4000);
+		}
+	}
 }
 
 //=======
@@ -122,6 +151,10 @@ void motherboard::init(Motherboard* motherboard)
 	motherboard->cpu.mb = motherboard;
 	motherboard->gpu.mb = motherboard;
 	motherboard->internalMemory.mb = motherboard;
+
+	motherboard->cpu.dividerCounter = 0;
+	motherboard->cpu.timerCycleCounter = 0;
+	motherboard->cpu.halted = 0;
 
 	//enable DMG rom
 	motherboard->internalMemory.IORegister[0x50] = 0;
@@ -211,10 +244,22 @@ u8* internalmemory::ioRegisterAccess(InternalMemory* intmem, u16 address, u8 wri
 			return &dummy8bit;
 		}
 		break;
+
+	case 0xFF04 : //Divider Register. get 1 every 256 cycle. Writing reset it
+		if (write)
+		{
+			intmem->IORegister[0x04] = 0;
+			return &dummy8bit;
+		}
+		else
+			return &intmem->IORegister[0x04];
+		break;
+
 	//all those are R/W so no special handling to do
 	case 0xFF01:// some cable link stuff, handle WAYYY later
 	case 0xFF02:// some cable link stuff, handle WAYYY later
 
+	case 0xFF07:
 	case 0xFF06:
 	case 0xFF10:
 	case 0xFF11:

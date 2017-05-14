@@ -53,7 +53,16 @@ struct CPU
 	u16 SP;
 	u16 PC;
 
+	u8 halted;
 	u8 interruptEnabled;
+	
+	//-- timer data, maybe move that to own struct?
+
+	u16 dividerCounter;
+	
+	u16 timerCycleCounter;
+
+	//---
 
 	Motherboard* mb;
 };

@@ -4,9 +4,12 @@
 const int SCREEN_WIDTH = 160;
 const int SCREEN_HEIGHT = 144;
 
+const int CLOCK_SPEED_HZ = 4194304;
+
 typedef unsigned char u8;
 typedef unsigned short u16;
 typedef signed char s8;
+typedef signed short s16;
 
 const u8 ZERO_FLAG_BIT = 7;
 const u8 SUBSTRACT_FLAG_BIT = 6;

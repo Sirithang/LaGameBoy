@@ -113,6 +113,22 @@ inline u8 RLC(CPU* cpu, u8 value, u8 setZeroFlag)
 	return ret;
 }
 
+inline u8 RR(CPU* cpu, u8 value, u8 setZeroFlag = 1)
+{
+	u8 ret = value;
+
+	ret = ret >> 1;
+
+	cpu->registers.F = 0;
+	BITTEST(cpu->registers.F, CARRY_FLAG_BIT) == 0 ? BITCLEAR(ret, 0) : BITSET(ret, 0);
+	BITTEST(value, 7) == 0 ? BITCLEAR(cpu->registers.F, CARRY_FLAG_BIT) : BITSET(cpu->registers.F, CARRY_FLAG_BIT);
+
+	if(setZeroFlag != 0)
+		ret == (u8)0x0 ? BITSET(cpu->registers.F, ZERO_FLAG_BIT) : BITCLEAR(cpu->registers.F, ZERO_FLAG_BIT);
+
+	return ret;
+}
+
 //This is (shamefully) stolen from a forum post...
 inline void DAA(CPU* cpu)
 {

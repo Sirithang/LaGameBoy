@@ -23,7 +23,9 @@ struct InternalMemory
 struct Cart
 {
 	u8* content;
-	//TODO handle MBC
+	
+	u8 MBCType;
+	u8 ROMBankNumber;
 };
 
 struct Motherboard
@@ -42,7 +44,7 @@ struct Motherboard
 namespace cart
 {
 	void load(Cart* cart, const char* path);
-	u8* address(Cart* cart, u16 address);
+	u8* address(Cart* cart, u16 address, u8 write);
 }
 
 

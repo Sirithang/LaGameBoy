@@ -55,6 +55,8 @@ bool gpu::tick(GPU* gpu, int tickCount)
 
 			if (gpu->currentLine == 143)
 			{//go into VBLANK
+				gpu::renderLine(gpu, gpu->currentLine);
+
 				gpu->currentState = 1;
 				BITSET(gpu->mb->internalMemory.IORegister[0x0F], 0);
 
@@ -128,10 +130,9 @@ void gpu::renderLine(GPU* gpu, u8 line)
 		u8 spriteCount = 0;
 		for (int s = 0; s < 40 && spriteCount < 10; ++s)
 		{
-			u8 ySpr = OAM[s * 4];
-			if (ySpr == 0) continue;//0 pos sprite are hidden
-
-			u8 yDiff = ySpr - line - (spriteHeight > 8 ? 0 : 8);
+			s16 ySpr = OAM[s * 4];
+			ySpr -= 16; // correctedPosition
+			s16 yDiff = line - ySpr;
 
 			if (yDiff >= 0 && (yDiff < spriteHeight))
 			{
@@ -141,14 +142,14 @@ void gpu::renderLine(GPU* gpu, u8 line)
 
 				for (int xSpriLine = 0; xSpriLine < 8; ++xSpriLine)
 				{
-					u8 pixX = xSpr - 8 + xSpriLine;
+					s16 pixX = xSpr - 8 + xSpriLine;
 					if (pixX < 0 || pixX >= SCREEN_WIDTH)
 						continue; //pixel outside of screen;
 
 					if (pxielSpritesBuffer[pixX] == 0xFF || OAM[pxielSpritesBuffer[pixX] * 4 + 1] > xSpr)
 					{//either no sprite on that line yet OR
 						pxielSpritesBuffer[pixX] = s;
-						u8 ySpriLine = spriteHeight - yDiff;
+						u8 ySpriLine = yDiff;
 
 						u8 attribute = OAM[s * 4 + 3];
 						if (BITTEST(attribute, 6) != 0x0) // Y Flip
@@ -225,8 +226,19 @@ void gpu::renderLine(GPU* gpu, u8 line)
 
 u8 graphic::fetchTilePixelPaletteIdx(Motherboard* mb, u8 tileNum, u8 pixelY, u8 pixelX)
 {
-	u8 leastByte = motherboard::fetchu8(mb, 0x8000 + tileNum * 16 + pixelY * 2);
-	u8 mostByte = motherboard::fetchu8(mb, 0x8000 + tileNum * 16 + pixelY * 2 + 1);
+	u8 leastByte;
+	u8 mostByte;
+
+	if (BITTEST(mb->internalMemory.IORegister[0x40], 4) == 0)
+	{
+		leastByte = motherboard::fetchu8(mb, 0x9000 + (s8)tileNum * 16 + pixelY * 2);
+		mostByte = motherboard::fetchu8(mb, 0x9000 + (s8)tileNum * 16 + pixelY * 2 + 1);
+	}
+	else
+	{
+		leastByte = motherboard::fetchu8(mb, 0x8000 + tileNum * 16 + pixelY * 2);
+		mostByte = motherboard::fetchu8(mb, 0x8000 + tileNum * 16 + pixelY * 2 + 1);
+	}
 
 	u8 offset = 7 - pixelX;
 

@@ -38,6 +38,9 @@ int extendedDecode(CPU* cpu, u8 opcode)
 	case 0x10://RL dest
 		FUNC_ON_REGISTER_ASSIGN(RL, dest, 8, 16);
 		break;
+	case 0x18://RR dest
+		FUNC_ON_REGISTER_ASSIGN(RR, dest, 8, 16);
+		break;
 	case 0x20:
 		FUNC_ON_REGISTER_ASSIGN(SLA, dest, 8, 16);
 		break;
@@ -240,6 +243,10 @@ int decode(CPU* cpu, u8 opcode)
 		cpu->PC += 1;
 		cycle = 8;
 		break;
+	case 0x1F: //RRA
+		cpu->registers.A = RR(cpu, cpu->registers.A, 0);
+		cycle = 4;
+		break;
 	case 0x20://JR NZ, n (n is signed)
 		if (BITTEST(cpu->registers.F, ZERO_FLAG_BIT) == 0)
 		{
@@ -254,6 +261,7 @@ int decode(CPU* cpu, u8 opcode)
 		break;
 	case 0x21:
 		{//LD HL,d16
+
 			cpu->registers.HL = motherboard::fetchu16(cpu->mb, cpu->PC);
 			cpu->PC += 2;
 			cycle = 12;
@@ -352,6 +360,9 @@ int decode(CPU* cpu, u8 opcode)
 		break;
 	case 0x32: //LD (HL-), A
 		{
+			if (cpu->PC == 0x01C5)
+				printf("vaucght");
+
 			motherboard::writeu8(cpu->mb, cpu->registers.HL, cpu->registers.A);
 			cpu->registers.HL = cpu->registers.HL - 1;
 			cycle = 8;
@@ -621,6 +632,10 @@ int decode(CPU* cpu, u8 opcode)
 		motherboard::writeu8(cpu->mb, cpu->registers.HL, cpu->registers.L);
 		cycle = 8;
 		break;
+	case 0x76: // HALT
+		cpu->halted = 1;
+		cycle = 4;
+		break;
 	case 0x77: //LD (HL),A
 		motherboard::writeu8(cpu->mb, cpu->registers.HL, cpu->registers.A);
 		cycle = 8;
@@ -751,6 +766,38 @@ int decode(CPU* cpu, u8 opcode)
 		break;
 	case 0x97: // SUB A
 		cpu->registers.A = SUB(cpu, cpu->registers.A, cpu->registers.A);
+		cycle = 4;
+		break;
+	case 0x98: // SBC A,B
+		cpu->registers.A = SUB(cpu, cpu->registers.A, cpu->registers.B + BITTEST(cpu->registers.F, CARRY_FLAG_BIT));
+		cycle = 4;
+		break;
+	case 0x99: // SBC A,C
+		cpu->registers.A = SUB(cpu, cpu->registers.A, cpu->registers.C + BITTEST(cpu->registers.F, CARRY_FLAG_BIT));
+		cycle = 4;
+		break;
+	case 0x9A: // SBC A,D
+		cpu->registers.A = SUB(cpu, cpu->registers.A, cpu->registers.D + BITTEST(cpu->registers.F, CARRY_FLAG_BIT));
+		cycle = 4;
+		break;
+	case 0x9B: // SBC A,E
+		cpu->registers.A = SUB(cpu, cpu->registers.A, cpu->registers.E + BITTEST(cpu->registers.F, CARRY_FLAG_BIT));
+		cycle = 4;
+		break;
+	case 0x9C: // SBC A,H
+		cpu->registers.A = SUB(cpu, cpu->registers.A, cpu->registers.H + BITTEST(cpu->registers.F, CARRY_FLAG_BIT));
+		cycle = 4;
+		break;
+	case 0x9D: // SBC A,L
+		cpu->registers.A = SUB(cpu, cpu->registers.A, cpu->registers.L + BITTEST(cpu->registers.F, CARRY_FLAG_BIT));
+		cycle = 4;
+		break;
+	case 0x9E: // SBC A,(HL)
+		cpu->registers.A = SUB(cpu, cpu->registers.A, motherboard::fetchu8(cpu->mb, cpu->registers.HL) + BITTEST(cpu->registers.F, CARRY_FLAG_BIT));
+		cycle = 8;
+		break;
+	case 0x9F: // SBC A,A
+		cpu->registers.A = SUB(cpu, cpu->registers.A, cpu->registers.A + BITTEST(cpu->registers.F, CARRY_FLAG_BIT));
 		cycle = 4;
 		break;
 	case 0xA0: // AND B
@@ -969,6 +1016,19 @@ int decode(CPU* cpu, u8 opcode)
 		cpu->PC = motherboard::fetchu16(cpu->mb, cpu->PC);
 		cycle = 16;
 		break;
+	case 0xC4://CALL NZ,a16
+		if (BITTEST(cpu->registers.F, ZERO_FLAG_BIT) == 0)
+		{
+			stackPush(cpu, (u16)(cpu->PC + 2));
+			cpu->PC = motherboard::fetchu16(cpu->mb, cpu->PC);
+			cycle = 24;
+		}
+		else
+		{
+			cpu->PC += 2;
+			cycle = 12;
+		}
+		break;
 	case 0xC5://push BC
 		stackPush(cpu, cpu->registers.BC);
 		cycle = 16;
@@ -1009,11 +1069,34 @@ int decode(CPU* cpu, u8 opcode)
 		cpu->PC++;
 		return extendedDecode(cpu, motherboard::fetchu8(cpu->mb, cpu->PC-1));
 		break;
+	case 0xCC: // CALL Z,a16
+		if (BITTEST(cpu->registers.F, ZERO_FLAG_BIT) != 0)
+		{
+			stackPush(cpu, (u16)(cpu->PC + 2));
+			cpu->PC = motherboard::fetchu16(cpu->mb, cpu->PC);
+			cycle = 24;
+		}
+		else
+		{
+			cpu->PC += 2;
+			cycle = 12;
+		}
+		break;
 	case 0xCD: //CALL a16
 		//we offset the PC by 2, because there is the 16bit address befor ethe next instruction
 		stackPush(cpu, (u16)(cpu->PC+2));
 		cpu->PC = motherboard::fetchu16(cpu->mb, cpu->PC);
 		cycle = 24;
+		break;
+	case 0xCE://ADC A,d8
+		cpu->registers.A = ADD(cpu, cpu->registers.A, motherboard::fetchu8(cpu->mb, cpu->PC) + BITTEST(cpu->registers.F, CARRY_FLAG_BIT));
+		cpu->PC += 1;
+		cycle = 8;
+		break;
+	case 0xCF: //RST 08H
+		stackPush(cpu, cpu->PC);
+		cpu->PC = 0x08;
+		cycle = 16;
 		break;
 	case 0xD0: //RET NC
 		if (BITTEST(cpu->registers.F, CARRY_FLAG_BIT) == 0)
@@ -1030,6 +1113,18 @@ int decode(CPU* cpu, u8 opcode)
 		cpu->registers.DE = stackPop(cpu);
 		cycle = 12;
 		break;
+	case 0xD2://JP NC, a16
+		if (BITTEST(cpu->registers.F, CARRY_FLAG_BIT) == 0)
+		{
+			cpu->PC = motherboard::fetchu16(cpu->mb, cpu->PC);
+			cycle = 16;
+		}
+		else
+		{
+			cpu->PC += 2;
+			cycle = 12;
+		}
+		break;
 	case 0xD5: //PUSH DE
 		stackPush(cpu, cpu->registers.DE);
 		cycle = 16;
@@ -1039,10 +1134,26 @@ int decode(CPU* cpu, u8 opcode)
 		cpu->PC += 1;
 		cycle = 8;
 		break;
+	case 0xD8://RET C
+		if (BITTEST(cpu->registers.F, CARRY_FLAG_BIT) != 0)
+		{//jump
+			cpu->PC = stackPop(cpu);
+			cycle = 20;
+		}
+		else
+		{//continue
+			cycle = 8;
+		}
+		break;
 	case 0xD9: //RETI
 		cpu->PC = stackPop(cpu);
 		cpu->interruptEnabled = 1;
 		cycle = 16;
+		break;
+	case 0xDE://SBC A, d8
+		cpu->registers.A = SUB(cpu, cpu->registers.A, motherboard::fetchu8(cpu->mb, cpu->PC) + BITTEST(cpu->registers.F, CARRY_FLAG_BIT));
+		cpu->PC += 1;
+		cycle = 8;
 		break;
 	case 0xDF://RST 18H
 		stackPush(cpu, cpu->PC);
@@ -1119,6 +1230,11 @@ int decode(CPU* cpu, u8 opcode)
 		cpu->registers.A == 0 ? BITSET(cpu->registers.F, ZERO_FLAG_BIT) : BITCLEAR(cpu->registers.F, ZERO_FLAG_BIT);
 		cycle = 8;
 		break;
+	case 0xF8: //LD HL,SP+r8
+		cpu->registers.HL = motherboard::fetchu16(cpu->mb, cpu->SP + motherboard::fetchs8(cpu->mb, cpu->PC));
+		cpu->PC += 1;
+		cycle = 12;
+		break;
 	case 0xFA: //LD A,(a16)
 		cpu->registers.A = motherboard::fetchu8(cpu->mb, motherboard::fetchu16(cpu->mb, cpu->PC));
 		cpu->PC += 2;
@@ -1171,7 +1287,69 @@ u8 checkInterrupts(CPU* cpu)
 		return 5;
 	}
 
+	if (BITTEST(cpu->mb->internalMemory.InterruptRegister, 2) != 0 &&
+		BITTEST(cpu->mb->internalMemory.IORegister[0x0F], 2) != 0)
+	{//Timer Interupt enabled & asked
+		BITCLEAR(cpu->mb->internalMemory.IORegister[0x0F], 2);
+		cpu->interruptEnabled = 0;
+		stackPush(cpu, cpu->PC);
+		cpu->PC = 0x50;
+		return 5;
+	}
+
 	return 0;
+}
+
+void timerOp(CPU* cpu, int opCyle)
+{
+	u8* ioReg = cpu->mb->internalMemory.IORegister;
+
+	cpu->dividerCounter += opCyle;
+	if (cpu->dividerCounter >= 256)
+	{
+		cpu->dividerCounter -= 256;
+		cpu->mb->internalMemory.IORegister[0x04] += 1;
+	}
+
+	cpu->timerCycleCounter += opCyle;
+	if (BITTEST(ioReg[0x07], 2) != 0)
+	{//TIMER is ON
+		u8 timerMode = EXTRACT2BIT(ioReg[0x07], 0);
+
+		int maxCycleCount;
+
+		switch (timerMode)
+		{
+		case 0:
+			maxCycleCount = (CLOCK_SPEED_HZ / 4096);
+			break;
+		case 1:
+			maxCycleCount = (CLOCK_SPEED_HZ / 262144);
+			break;
+		case 2:
+			maxCycleCount = (CLOCK_SPEED_HZ / 65536);
+			break;
+		case 3:
+			maxCycleCount = (CLOCK_SPEED_HZ / 16384);
+			break;
+		default:
+			printf("Unhandled timer mode %hhx\n", timerMode);
+			break;
+		}
+
+		if (cpu->timerCycleCounter > maxCycleCount)
+		{
+			cpu->timerCycleCounter = 0;
+			u16 timerCounter = ioReg[0x05] + 1;
+			if (timerCounter > 0xFF)
+			{
+				BITSET(ioReg[0x0f], 2);
+				ioReg[0x05] = ioReg[0x06];
+			}
+		}
+	}
+
+
 }
 
 int cpu::tick(CPU* cpu)
@@ -1191,10 +1369,20 @@ int cpu::tick(CPU* cpu)
 	u8 interruptCycle = checkInterrupts(cpu);
 
 	if (interruptCycle != 0)
+	{
+		cpu->halted = 0; //if CPU was halted by HALT opcode, restart it
 		return interruptCycle;
+	}
+
+	if (cpu->halted == 1)
+		return 4; // cpu is halted, don't execute anything but tick 4 cycle;
 
 	u8 opcode = motherboard::fetchu8(cpu->mb, cpu->PC);
 	cpu->PC += 1;
 
-	return decode(cpu, opcode);
+	int cycle =  decode(cpu, opcode);
+
+	timerOp(cpu, cycle);
+
+	return cycle;
 }

@@ -50,13 +50,14 @@ int main(int argc, char **argv)
 			mb.cpu.registers.F = 0;
 
 			motherboard::init(&mb);
-			cart::load(&mb.cart, "data/Tetris.gb");
+			cart::load(&mb.cart, "data/sml.gb");
 			gpu::init(&mb.gpu);
 
 			//used to refresh debug display every 70000 cycles;
 			int debugRefreshCycle = 0;
 			callHistory.currentCall = 0;
 
+			Uint32 frameStart = SDL_GetTicks();
 			while (loop)
 			{
 				while (SDL_PollEvent(&event))
@@ -124,6 +125,14 @@ int main(int argc, char **argv)
 							SDL_UpdateTexture(screenTexture, NULL, &mb.gpu.buffer[0], SCREEN_WIDTH * 4);
 							SDL_RenderCopy(screenRenderer, screenTexture, NULL, NULL);
 							SDL_RenderPresent(screenRenderer);
+
+							Uint32 frameEnd = SDL_GetTicks();
+							if (frameEnd - frameStart < 16)
+							{
+								SDL_Delay(16 - (frameEnd - frameStart));
+							}
+
+							frameStart = SDL_GetTicks();
 						}
 
 						motherboard::updateGPURegister(&mb);
