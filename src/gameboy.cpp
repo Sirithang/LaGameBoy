@@ -208,9 +208,20 @@ void motherboard::updateGPURegister(Motherboard* motherboard)
 	val |= motherboard->gpu.currentState;
 
 	if (motherboard->gpu.currentLine == motherboard->internalMemory.IORegister[0x45])
+	{
 		BITSET(val, 2);
+
+		if (BITTEST(motherboard->internalMemory.IORegister[0x41], 6) != 0x0)
+		{//STAT ask for coincidence interrupt
+			BITSET(motherboard->internalMemory.IORegister[0x0F], 1);
+		}
+
+	}
 	else
+	{
 		BITCLEAR(val, 2);
+	}
+
 
 	motherboard->internalMemory.IORegister[0x41] = val;
 	//--
@@ -303,6 +314,7 @@ u8* internalmemory::ioRegisterAccess(InternalMemory* intmem, u16 address, u8 wri
 	case 0xFF41: //some bit a read only but hard to enforce wo/ more work, let's hop it don't break ¯\_(?)_/¯
 	case 0xFF42: 
 	case 0xFF43:
+	case 0xFF45:
 	case 0xFF47:
 	case 0xFF48:
 	case 0xFF49:

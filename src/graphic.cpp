@@ -118,6 +118,8 @@ void gpu::renderLine(GPU* gpu, u8 line)
 	u8 bgPalette = gpu->mb->internalMemory.IORegister[0x47];
 	u8 spritePalette = gpu->mb->internalMemory.IORegister[0x48];
 
+	u8 bgNumber = BITTEST(gpu->mb->internalMemory.IORegister[0x40], 3);
+
 	// For each pixel we store which sprite number(0-40) should be displayed here.
 	u8 pxielSpritesBuffer[SCREEN_WIDTH];
 	SDL_memset(pxielSpritesBuffer, 0xFF, sizeof(u8) * SCREEN_WIDTH);
@@ -142,20 +144,21 @@ void gpu::renderLine(GPU* gpu, u8 line)
 
 				for (int xSpriLine = 0; xSpriLine < 8; ++xSpriLine)
 				{
+					u8 correctedXSpriLine = xSpriLine;
+
 					s16 pixX = xSpr - 8 + xSpriLine;
 					if (pixX < 0 || pixX >= SCREEN_WIDTH)
 						continue; //pixel outside of screen;
 
 					if (pxielSpritesBuffer[pixX] == 0xFF || OAM[pxielSpritesBuffer[pixX] * 4 + 1] > xSpr)
 					{//either no sprite on that line yet OR
-						pxielSpritesBuffer[pixX] = s;
 						u8 ySpriLine = yDiff;
 
 						u8 attribute = OAM[s * 4 + 3];
 						if (BITTEST(attribute, 6) != 0x0) // Y Flip
 							ySpriLine = spriteHeight - 1 - ySpriLine;
 						if (BITTEST(attribute, 5) != 0x0) // X Flip
-							xSpriLine = 7 - xSpriLine;
+							correctedXSpriLine = 7 - xSpriLine;
 
 						u8 correctedSprNum = sprNum;
 						if (spriteHeight > 8)
@@ -163,13 +166,17 @@ void gpu::renderLine(GPU* gpu, u8 line)
 							correctedSprNum = ySpriLine >= 8 ? sprNum & 0xFE : sprNum | 0x01;
 						}
 
-						u8 paletteIdx = graphic::fetchTilePixelPaletteIdx(gpu->mb, correctedSprNum, ySpriLine, xSpriLine);
+						u8 paletteIdx = graphic::fetchTilePixelPaletteIdx(gpu->mb, correctedSprNum, ySpriLine, correctedXSpriLine, 1);
 
 						if (paletteIdx != 0) //index 0 is transparent for sprite
 						{
 							u8 shade = EXTRACT2BIT(spritePalette, paletteIdx * 2);
 							gpu->buffer[(line * SCREEN_WIDTH) + pixX] = palette[shade];
+
+							//doing that here will probably "fix" some original display bug
+							pxielSpritesBuffer[pixX] = s;
 						}
+
 					}
 				}
 			}
@@ -192,10 +199,10 @@ void gpu::renderLine(GPU* gpu, u8 line)
 
 			u16 tileIdx = yTileIdx * 32 + xTileIdx;
 
-			tileNum = motherboard::fetchu8(gpu->mb, 0x9800 + tileIdx);
+			tileNum = motherboard::fetchu8(gpu->mb, (bgNumber == 0 ? 0x9800 : 0x9C00 )+ tileIdx);
 		}
 
-		u8 paletteIdx = graphic::fetchTilePixelPaletteIdx(gpu->mb, tileNum, tileY, tileX);
+		u8 paletteIdx = graphic::fetchTilePixelPaletteIdx(gpu->mb, tileNum, tileY, tileX, 0);
 		u8 shade = EXTRACT2BIT(bgPalette, paletteIdx * 2);
 
 		int offset = (line * SCREEN_WIDTH) + x;
@@ -224,13 +231,13 @@ void gpu::renderLine(GPU* gpu, u8 line)
 
 //------------------------------------------------------
 
-u8 graphic::fetchTilePixelPaletteIdx(Motherboard* mb, u8 tileNum, u8 pixelY, u8 pixelX)
+u8 graphic::fetchTilePixelPaletteIdx(Motherboard* mb, u8 tileNum, u8 pixelY, u8 pixelX, u8 isOBJ)
 {
 	u8 leastByte;
 	u8 mostByte;
 
-	if (BITTEST(mb->internalMemory.IORegister[0x40], 4) == 0)
-	{
+	if (isOBJ == 0 && BITTEST(mb->internalMemory.IORegister[0x40], 4) == 0)
+	{//sprite can only 
 		leastByte = motherboard::fetchu8(mb, 0x9000 + (s8)tileNum * 16 + pixelY * 2);
 		mostByte = motherboard::fetchu8(mb, 0x9000 + (s8)tileNum * 16 + pixelY * 2 + 1);
 	}
@@ -264,7 +271,7 @@ void graphic::drawTile(Motherboard* motherboard, u16 x, u16 y, u8 tilenum, Uint3
 
 			//less effective than using the fetched byte above, but allow parity with actual emulation
 			//rendering, to show bugs
-			u8 paletteIdx = graphic::fetchTilePixelPaletteIdx(motherboard, tilenum, py, px);
+			u8 paletteIdx = graphic::fetchTilePixelPaletteIdx(motherboard, tilenum, py, px, 1);
 
 			/*u8 paletteIdx = BITTEST(leastByte, offset) != 0 ? 0x1 : 0x0;
 			paletteIdx += BITTEST(mostByte, offset) != 0 ? 0x2 : 0x0;*/
