@@ -28,11 +28,27 @@ struct Cart
 	u8 ROMBankNumber;
 };
 
+struct SoundGenerator
+{
+	struct SquareWave
+	{
+		u8 on;
+		u8 frequency;
+
+		u8 internalCounter;
+
+		SDL_AudioDeviceID deviceID;
+	};
+
+	SquareWave sqrWave0;
+};
+
 struct Motherboard
 {
 	InternalMemory internalMemory;
 	CPU cpu;
 	GPU gpu;
+	SoundGenerator sound;
 	Cart cart;
 	
 	//bit 0-3 are dir, bit 4-7 are button (same order than 0xff00 lower 4 bit)
@@ -47,6 +63,10 @@ namespace cart
 	u8* address(Cart* cart, u16 address, u8 write);
 }
 
+namespace soundgenerator
+{
+	void init(SoundGenerator* generator);
+}
 
 namespace motherboard
 {

@@ -13,7 +13,7 @@ int main(int argc, char **argv)
 	int cputick = 1;
 	int loop = 1;
 
-	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+	if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO) < 0) {
 		printf("SDL init failure! SDL_Error: %s\n", SDL_GetError());
 	}
 	else 
@@ -25,8 +25,6 @@ int main(int argc, char **argv)
 		DebugDisplay bgmapDisplay;
 		debugger::createDebugDisplay(&bgmapDisplay, "BG 0", 256, 256, 2);
 		u8 currentBg = 0;
-
-		CallHistory callHistory;
 
 		window = SDL_CreateWindow("La GameBoy", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH*2, SCREEN_HEIGHT*2, SDL_WINDOW_SHOWN);
 
@@ -50,12 +48,12 @@ int main(int argc, char **argv)
 			mb.cpu.registers.F = 0;
 
 			motherboard::init(&mb);
-			cart::load(&mb.cart, "data/sml.gb");
+			cart::load(&mb.cart, "data/Tetris.gb");
 			gpu::init(&mb.gpu);
 
 			//used to refresh debug display every 70000 cycles;
 			int debugRefreshCycle = 0;
-			callHistory.currentCall = 0;
+			debugger::s_callHistory.currentCall = 0;
 
 			Uint32 frameStart = SDL_GetTicks();
 			while (loop)
@@ -106,10 +104,9 @@ int main(int argc, char **argv)
 
 				if (cputick > 0)
 				{
-					callHistory.PCHistory[callHistory.currentCall] = mb.cpu.PC;
-					callHistory.currentCall++;
-
 					int cycle = cpu::tick(&mb.cpu);
+
+					debugger::s_callHistory.currentCall++;
 
 					if (cycle < 0)
 					{

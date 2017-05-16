@@ -4,6 +4,12 @@
 
 using namespace debugger;
 
+CallHistory debugger::s_callHistory;
+
+CallHistory::Call* debugger::getCurrentCallData()
+{
+	return &s_callHistory.PCHistory[s_callHistory.currentCall];
+}
 
 void debugger::createDebugDisplay(DebugDisplay* display, const char* title, int w, int h, int zoom)
 {

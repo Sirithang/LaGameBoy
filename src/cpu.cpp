@@ -1,6 +1,7 @@
 #include "opcodes.inl"
 #include "cpu.h"
 #include "gameboy.h"
+#include "debugger.h"
 #include <stdio.h>
 
 using namespace cpu;
@@ -26,6 +27,8 @@ inline u16 stackPop(CPU* cpu)
 
 int extendedDecode(CPU* cpu, u8 opcode)
 {
+	debugger::getCurrentCallData()->extendedOpcode = opcode;
+
 	//probably can do without, but too lazy to think about it
 	u8 buffer;
 	int cycle = -1;
@@ -79,11 +82,24 @@ int extendedDecode(CPU* cpu, u8 opcode)
 		break;
 	case 0x98:
 		FUNC_ON_REGISTER_PARAM_ASSIGN(RES, dest, 3, 8, 16);
+		break;
+	case 0xA0://RES 4,dest
+		FUNC_ON_REGISTER_PARAM_ASSIGN(RES, dest, 4, 8, 16);
+		break;
 	case 0xA8://RES 5,dest
 		FUNC_ON_REGISTER_PARAM_ASSIGN(RES, dest, 5, 8, 16);
 		break;
 	case 0xB8:
 		FUNC_ON_REGISTER_PARAM_ASSIGN(RES, dest, 7, 8, 16);
+		break;
+	case 0xC0://SET 1,dest
+		FUNC_ON_REGISTER_PARAM_ASSIGN(SET, dest, 0, 8, 16);
+		break;
+	case 0xC8://SET 1,dest
+		FUNC_ON_REGISTER_PARAM_ASSIGN(SET, dest, 1, 8, 16);
+		break;
+	case 0xD0://SET 2,dest
+		FUNC_ON_REGISTER_PARAM_ASSIGN(SET, dest, 2, 8, 16);
 		break;
 	case 0xD8://SET 3,dest
 		FUNC_ON_REGISTER_PARAM_ASSIGN(SET, dest, 3, 8, 16);
@@ -415,6 +431,17 @@ int decode(CPU* cpu, u8 opcode)
 		cpu->registers.A = motherboard::fetchu8(cpu->mb, cpu->PC);
 		cpu->PC += 1;
 		cycle = 8;
+		break;
+	case 0x3F://CCF
+		BITCLEAR(cpu->registers.F, SUBSTRACT_FLAG_BIT);
+		BITCLEAR(cpu->registers.F, HALF_CARRY_FLAG_BIT);
+
+		if (BITTEST(cpu->registers.F, CARRY_FLAG_BIT))
+			BITCLEAR(cpu->registers.F, CARRY_FLAG_BIT);
+		else
+			BITSET(cpu->registers.F, CARRY_FLAG_BIT);
+
+		cycle = 4;
 		break;
 	case 0x40: //LD B,B
 		cpu->registers.B = cpu->registers.B;
@@ -1354,6 +1381,11 @@ void timerOp(CPU* cpu, int opCyle)
 
 int cpu::tick(CPU* cpu)
 {
+	CallHistory::Call* call = debugger::getCurrentCallData();
+
+
+	call->address = cpu->PC;
+
 	//if a DMA request is pending, execute it
 	//(on hardware would be parallel to CPu execution but for emulation
 	//intantaneous on a CPU cycle should be enough. Hopefully.
@@ -1371,8 +1403,12 @@ int cpu::tick(CPU* cpu)
 	if (interruptCycle != 0)
 	{
 		cpu->halted = 0; //if CPU was halted by HALT opcode, restart it
+		call->interupted = 1;
 		return interruptCycle;
 	}
+
+	call->interupted = 0;
+	call->halted = cpu->halted;
 
 	if (cpu->halted == 1)
 		return 4; // cpu is halted, don't execute anything but tick 4 cycle;
@@ -1380,6 +1416,8 @@ int cpu::tick(CPU* cpu)
 	u8 opcode = motherboard::fetchu8(cpu->mb, cpu->PC);
 	cpu->PC += 1;
 
+	call->opcode = opcode;
+	call->extendedOpcode = 0xff;
 	int cycle =  decode(cpu, opcode);
 
 	timerOp(cpu, cycle);

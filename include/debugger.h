@@ -18,14 +18,28 @@ struct DebugDisplay
 
 struct CallHistory
 {
-	u16 PCHistory[256];
+	struct Call
+	{
+		u16 address;
+		u8 opcode;
+		u8 extendedOpcode;
+		u8 interupted;
+		u8 halted;
+	};
+
+	Call PCHistory[256];
+	
 	u8 currentCall;
 };
 
 namespace debugger
 {
+	extern CallHistory s_callHistory;
+
 	void createDebugDisplay(DebugDisplay* display, const char* title, int w, int h, int zoom);
 
 	void tileDataDebug(DebugDisplay* display, Motherboard* mb);
 	void bgmapDebug(DebugDisplay* display, Motherboard* mb, u8 bgNum);
+
+	CallHistory::Call* getCurrentCallData();
 }

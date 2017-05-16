@@ -146,6 +146,51 @@ u8* cart::address(Cart* cart, u16 address, u8 write)
 
 //=======
 
+int counter = 0;
+int up = 0;
+
+void sqr_waveGen(void *_sqrWave, Uint8 *_stream, int _length)
+{
+	for (int i = 0; i < _length; ++i)
+	{
+		_stream[i] = up ? 255 : 0;
+
+		counter++;
+		if (counter > 256)
+		{
+			counter = 0;
+			up = 1 - up;
+		}
+	}
+}
+
+void soundgenerator::init(SoundGenerator* generator)
+{
+	SDL_AudioSpec spec;
+
+	SDL_zero(spec);
+
+	spec.freq = 480000;
+	spec.format = AUDIO_U8;
+	spec.channels = 1;
+	spec.samples = 16;
+	spec.callback = sqr_waveGen;
+	spec.userdata = &generator->sqrWave0;
+
+	SDL_AudioSpec out;
+
+	generator->sqrWave0.deviceID = SDL_OpenAudioDevice(NULL, 0, &spec, &out, 0);
+
+	if (generator->sqrWave0.deviceID == 0)
+	{
+		SDL_Log("Failed to open audio: %s", SDL_GetError());
+	}
+
+	SDL_PauseAudioDevice(generator->sqrWave0.deviceID, 1);
+}
+
+//=======
+
 void motherboard::init(Motherboard* motherboard)
 {
 	motherboard->cpu.mb = motherboard;
@@ -163,6 +208,8 @@ void motherboard::init(Motherboard* motherboard)
 
 	motherboard->inputState = 0xFF;
 	motherboard->DMARequested = 0;
+
+	soundgenerator::init(&motherboard->sound);
 }
 
 u8 motherboard::fetchu8(Motherboard* controller, u16 address)
