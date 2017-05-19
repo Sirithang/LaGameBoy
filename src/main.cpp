@@ -48,7 +48,7 @@ int main(int argc, char **argv)
 			mb.cpu.registers.F = 0;
 
 			motherboard::init(&mb);
-			cart::load(&mb.cart, "data/Tetris.gb");
+			cart::load(&mb.cart, "data/Zelda.gb");
 			gpu::init(&mb.gpu);
 
 			//used to refresh debug display every 70000 cycles;

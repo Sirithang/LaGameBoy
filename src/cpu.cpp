@@ -1065,6 +1065,11 @@ int decode(CPU* cpu, u8 opcode)
 		cpu->PC += 1;
 		cycle = 8;
 		break;
+	case 0xC7 : //RST 00H
+		stackPush(cpu, cpu->PC);
+		cpu->PC = 0x00;
+		cycle = 16;
+		break;
 	case 0xC8: //RET Z
 		if (BITTEST(cpu->registers.F, ZERO_FLAG_BIT) != 0)
 		{//jump
@@ -1176,6 +1181,18 @@ int decode(CPU* cpu, u8 opcode)
 		cpu->PC = stackPop(cpu);
 		cpu->interruptEnabled = 1;
 		cycle = 16;
+		break;
+	case 0xDA: //JP C,a16
+		if (BITTEST(cpu->registers.F, CARRY_FLAG_BIT) != 0)
+		{
+			cpu->PC = motherboard::fetchu16(cpu->mb, cpu->PC);
+			cycle = 16;
+		}
+		else
+		{
+			cpu->PC += 2;
+			cycle = 12;
+		}
 		break;
 	case 0xDE://SBC A, d8
 		cpu->registers.A = SUB(cpu, cpu->registers.A, motherboard::fetchu8(cpu->mb, cpu->PC) + BITTEST(cpu->registers.F, CARRY_FLAG_BIT));

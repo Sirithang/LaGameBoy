@@ -23,9 +23,17 @@ struct InternalMemory
 struct Cart
 {
 	u8* content;
+	u8* RAM;
 	
+	//MBC relevant data
 	u8 MBCType;
 	u8 ROMBankNumber;
+	
+	//0 is rom mode 1 is ram mode, used for write to 0x4000-0x5fff
+	u8 modeROMRAM;
+
+	u16 RAMSize;
+	u8 RAMBank;
 };
 
 struct SoundGenerator
@@ -60,7 +68,7 @@ struct Motherboard
 namespace cart
 {
 	void load(Cart* cart, const char* path);
-	u8* address(Cart* cart, u16 address, u8 write);
+	void address(Cart* cart, u16 address, u8 write, u8** value);
 }
 
 namespace soundgenerator
@@ -88,5 +96,5 @@ namespace motherboard
 
 namespace internalmemory
 {
-	u8* ioRegisterAccess(InternalMemory* intmem, u16 address, u8 write);
+	void ioRegisterAccess(InternalMemory* intmem, u16 address, u8 write, u8** value);
 }

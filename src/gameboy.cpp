@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #define CAST_MEMPTR_TO_SHORT(val) *(u16*)(val)
+#define FETCH_CAST(val) length > 1?
 
 using namespace cart;
 using namespace motherboard;
@@ -20,59 +21,65 @@ static u8 g_bootstrap[] =
 u16 dummyMemory;
 u8 dummy8bit;
 
-inline u8* fetchMemory(Motherboard* motherboard, u16 address, u8 writing)
+//Last parameters is input when writing and output when fetching.
+//THAT FONCTION WON'T WRITE TO MEMORY. You still need after fetching the pointer to write yourself
+//It will however use written value for special case (MBC banck switch, ioRegister etc..) & return pointer to a
+//dummy discarded memory if the written address is a read only space
+inline void fetchMemory(Motherboard* motherboard, u16 address, u8 writing, u8** value)
 {	
 	if (address <= 0xFF)
 	{
 		if(motherboard->internalMemory.IORegister[0x50])
-			return writing ? (u8*)&dummyMemory : cart::address(&motherboard->cart, address, writing);
+			cart::address(&motherboard->cart, address, writing, value);
 		else
-			return &g_bootstrap[address];		
+			*value = &g_bootstrap[address];		
 	}
 	else if(address <= 0x7FFF)
 	{
-		return cart::address(&motherboard->cart, address, writing);
+		cart::address(&motherboard->cart, address, writing, value);
 	}
 	else if(address <= 0x9FFF)
 	{
-		return &motherboard->internalMemory.VRAM[address - 0x8000];
+		*value = &motherboard->internalMemory.VRAM[address - 0x8000];
 	}
 	else if (address <= 0xBFFF)
 	{
-		return cart::address(&motherboard->cart, address, writing);
+		cart::address(&motherboard->cart, address, writing, value);
 	}
 	else if (address <= 0xDFFF)
 	{
-		return &motherboard->internalMemory.WRAM[address - 0xC000];
+		*value = &motherboard->internalMemory.WRAM[address - 0xC000];
 	}
 	else if (address <= 0xFDFF)
 	{//ECHO ram
 		//TODO : handle echo ram?
-		return (u8*)&dummyMemory;
+		*value = (u8*)&dummyMemory;
 	}
 	else if (address <= 0xFE9F)
 	{
-		return &motherboard->internalMemory.OAM[address - 0xFE00];
+		*value = &motherboard->internalMemory.OAM[address - 0xFE00];
 	}
 	else if (address <= 0xFEFF)
 	{
-		return (u8*)&dummyMemory;
+		*value = (u8*)&dummyMemory;
 	}
 	else if (address <= 0xFF7F)
 	{
-		return internalmemory::ioRegisterAccess(&motherboard->internalMemory, address, writing);
+		internalmemory::ioRegisterAccess(&motherboard->internalMemory, address, writing, value);
 	}
 	else if (address <= 0xFFFE)
 	{
-		return &motherboard->internalMemory.HRAM[address - 0xFF80];
+		*value = &motherboard->internalMemory.HRAM[address - 0xFF80];
+	}
+	else if(address == 0xFFFF)
+	{
+		*value = &motherboard->internalMemory.InterruptRegister;
 	}
 	else
 	{
-		return &motherboard->internalMemory.InterruptRegister;
+		printf("Bad asked memory %hx\n", address);
+		*value = 0;
 	}
-
-	printf("Bad asked memory %hx\n", address);
-	return 0;
 }
 
 //== cart
@@ -111,35 +118,90 @@ void cart::load(Cart* cart, const char* path)
 
 	cart->MBCType = cart->content[0x147];
 	cart->ROMBankNumber = 0x01;
+
+	u8 ramSize = cart->content[0x149];
+	switch (ramSize)
+	{
+	case 0x01:
+		cart->RAMSize = 2000;
+		break;
+	case 0x02:
+		cart->RAMSize = 8000;
+		break;
+	case 0x03:
+		cart->RAMSize = 32000;
+		break;
+	default:
+		cart->RAMSize = 0;
+		break;
+	}
+
+	cart->RAMBank = 0;
+	cart->RAM = cart->RAMSize == 0 ? NULL : new u8[cart->RAMSize];
 }
 
-u8* cart::address(Cart* cart, u16 address, u8 write)
+void cart::address(Cart* cart, u16 address, u8 write, u8** value)
 {
 	if (write != 0)
 	{
 		if (address < 0x2000)
 		{
-			printf("unhandled RAM switch \n");
+			//TODO : enable RAM? (prob useless as it was for hardware reason you ahd to enable/disbale it before/after writing
 		}
 		else if (address < 0x4000)
 		{
-			return &cart->ROMBankNumber;
+			u8 val = (**value & 0x1F);
+
+			if (val == 0) val = 1;
+
+			//select only 5 lowest bit 
+			cart->ROMBankNumber = (cart->ROMBankNumber & 0xE0) + val;
+			*value = &dummy8bit;
+		}
+		else if (address < 0x6000)
+		{
+			//either upper 3 bit of bank number or RAM bank number depending on mode selected
+			if (cart->modeROMRAM == 0)
+			{//rom mode
+				u8 val = (**value & 0xE0);
+				cart->ROMBankNumber = (cart->ROMBankNumber & 0x1F) + val;
+			}
+			else
+			{//ram mode
+				cart->RAMBank = SDL_min(**value, 3);
+			}
+		}
+		else if (address < 0x8000)
+		{
+			//selecting ram or rom mode
+			cart->modeROMRAM = (**value) & 0x1;
 		}
 		else
 		{
 			printf("Unhandled writing to Cart ROM address %hx\n", address);
 		}
-		return &dummy8bit;
+		*value = &dummy8bit;
 	}
 	else
 	{
 		if(address < 0x4000 || cart->MBCType == 0)
-			return cart->content + address;
+			*value = cart->content + address;
 		else
 		{
-			int bankNum = cart->ROMBankNumber == 0 ? 1 : cart->ROMBankNumber;
-
-			return cart->content + (address + (cart->ROMBankNumber - 1) * 0x4000);
+			if (address < 0x8000)
+			{
+				int bankNum = cart->ROMBankNumber == 0 ? 1 : cart->ROMBankNumber;
+				*value = cart->content + (address + (cart->ROMBankNumber - 1) * 0x4000);
+			}
+			else if (address >= 0xA000 && address <= 0xBFFF && cart->RAMSize > 0)
+			{
+				*value = cart->RAM + (address - 0xA000 + (cart->RAMBank - 1) * 0x2000);
+			}
+			else
+			{
+				printf("Trying to read from cart from a wrong address %hx\n", address);
+				*value = (u8*)&dummyMemory;
+			}
 		}
 	}
 }
@@ -214,33 +276,47 @@ void motherboard::init(Motherboard* motherboard)
 
 u8 motherboard::fetchu8(Motherboard* controller, u16 address)
 {
-	return *fetchMemory(controller, address, 0);
+	u8* ret;
+	fetchMemory(controller, address, 0, &ret);
+	return *ret;
 }
 
 u8* motherboard::fetchu8p(Motherboard* controller, u16 address)
 {
-	return fetchMemory(controller, address, 0);
+	u8* ret;
+	fetchMemory(controller, address, 0, &ret);
+	return ret;
 }
 
 
 s8 motherboard::fetchs8(Motherboard* controller, u16 address)
 {
-	return *fetchMemory(controller, address, 0);
+	u8* ret;
+	fetchMemory(controller, address, 0, &ret);
+	return *ret;
 }
 
 u16 motherboard::fetchu16(Motherboard* controller, u16 address)
 {
-	return CAST_MEMPTR_TO_SHORT(fetchMemory(controller, address, 0));
+	u8* ret;
+	fetchMemory(controller, address, 0, &ret);
+	return CAST_MEMPTR_TO_SHORT(ret);
 }
 
 void motherboard::writeu8(Motherboard* controller, u16 address, u8 value)
 {
-	*(fetchMemory(controller, address, 1)) = value;
+	u8* pos = &value;
+	fetchMemory(controller, address, 1, &pos);
+	//the fetch mem does not write the value to memory (unless for specific write that trigger thing)
+	//so we write to whatever pointer we've been fed back 
+	*pos = value;
 }
 
 void motherboard::writeu16(Motherboard* controller, u16 address, u16 value)
 {
-	*(u16*)(fetchMemory(controller, address, 1)) = value;
+	u16* pos = &value;
+	fetchMemory(controller, address, 1, (u8**)&pos);
+	*pos = value;
 }
 
 void motherboard::updateGPURegister(Motherboard* motherboard)
@@ -278,14 +354,14 @@ void motherboard::updateGPURegister(Motherboard* motherboard)
 
 //==================================
 
-u8* internalmemory::ioRegisterAccess(InternalMemory* intmem, u16 address, u8 write)
+void internalmemory::ioRegisterAccess(InternalMemory* intmem, u16 address, u8 write, u8** value)
 {
 	switch (address)
 	{
 	case 0xFF00://INPUT
 		if (write)
 		{//we let write even on readonly, as it won't change any value anyway
-			return &intmem->IORegister[0x00];
+			*value = &intmem->IORegister[0x00];
 		}
 		else
 		{//on read, we return the right value depending on what was asked
@@ -298,8 +374,7 @@ u8* internalmemory::ioRegisterAccess(InternalMemory* intmem, u16 address, u8 wri
 			 // if a game get random input even when not pressed, will be to look for I suppose
 				dummy8bit = intmem->mb->inputState & 0x0f;
 			}
-
-			return &dummy8bit;
+			*value = &dummy8bit;
 		}
 		break;
 
@@ -307,10 +382,10 @@ u8* internalmemory::ioRegisterAccess(InternalMemory* intmem, u16 address, u8 wri
 		if (write)
 		{
 			intmem->IORegister[0x04] = 0;
-			return &dummy8bit;
+			*value = &dummy8bit;
 		}
 		else
-			return &intmem->IORegister[0x04];
+			*value = &intmem->IORegister[0x04];
 		break;
 
 	//all those are R/W so no special handling to do
@@ -370,30 +445,31 @@ u8* internalmemory::ioRegisterAccess(InternalMemory* intmem, u16 address, u8 wri
 	case 0xFF50:
 	case 0xFF0F:
 	case 0xFF7F://?? No idea what that is 
-		return &intmem->IORegister[address-0xff00];
+		*value = &intmem->IORegister[address-0xff00];
 		break;
 	case 0xFF44:
 		if (write)
 		{//writing to the LCDC Y-Coord reset it
 			intmem->IORegister[0x44] = 0;
+			*value = &dummy8bit;
 		}
 		else //reading work as normal
-			return &intmem->IORegister[0x44];
+			*value = &intmem->IORegister[0x44];
 		break;
 	case 0xFF46:// DMA transfer required
+		*value = &dummy8bit; //this in case we try to read (shouldn't be allowed)
 		if (write)
 		{//let the program write to it, the DMA will use it
 			//tell the motherboard a DMA transfer was required
 			intmem->mb->DMARequested = 1;
-			return &intmem->IORegister[0x46];
+			*value = &intmem->IORegister[0x46];
 		}
 		break;
 	default:
+		//if pass through it was an invalide read or write
+		//so return a dummy value use as buffer
+		*value = (u8*)&dummyMemory;
 		printf("Unhandled IO register %hx\n", address);
 		break;
 	}
-
-	//if pass through it was an invalide read or write
-	//so return a dummy value use as buffer
-	return (u8*)&dummyMemory;
 }
