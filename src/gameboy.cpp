@@ -123,13 +123,13 @@ void cart::load(Cart* cart, const char* path)
 	switch (ramSize)
 	{
 	case 0x01:
-		cart->RAMSize = 2000;
+		cart->RAMSize = 0x800;
 		break;
 	case 0x02:
-		cart->RAMSize = 8000;
+		cart->RAMSize = 0x2000;
 		break;
 	case 0x03:
-		cart->RAMSize = 32000;
+		cart->RAMSize = 0x8000;
 		break;
 	default:
 		cart->RAMSize = 0;
@@ -138,6 +138,7 @@ void cart::load(Cart* cart, const char* path)
 
 	cart->RAMBank = 0;
 	cart->RAM = cart->RAMSize == 0 ? NULL : new u8[cart->RAMSize];
+	//SDL_memset(cart->RAM, 0, cart->RAMSize * sizeof(u8));
 }
 
 void cart::address(Cart* cart, u16 address, u8 write, u8** value)
@@ -176,11 +177,15 @@ void cart::address(Cart* cart, u16 address, u8 write, u8** value)
 			//selecting ram or rom mode
 			cart->modeROMRAM = (**value) & 0x1;
 		}
+		else if (address >= 0xA000 && address <= 0xBFFF && cart->RAMSize > 0)
+		{
+			*value = cart->RAM + (address - 0xA000 + cart->RAMBank * 0x2000);
+		}
 		else
 		{
 			printf("Unhandled writing to Cart ROM address %hx\n", address);
+			*value = &dummy8bit;
 		}
-		*value = &dummy8bit;
 	}
 	else
 	{
@@ -195,7 +200,7 @@ void cart::address(Cart* cart, u16 address, u8 write, u8** value)
 			}
 			else if (address >= 0xA000 && address <= 0xBFFF && cart->RAMSize > 0)
 			{
-				*value = cart->RAM + (address - 0xA000 + (cart->RAMBank - 1) * 0x2000);
+				*value = cart->RAM + (address - 0xA000 + cart->RAMBank * 0x2000);
 			}
 			else
 			{
@@ -228,7 +233,7 @@ void sqr_waveGen(void *_sqrWave, Uint8 *_stream, int _length)
 
 void soundgenerator::init(SoundGenerator* generator)
 {
-	SDL_AudioSpec spec;
+	/*SDL_AudioSpec spec;
 
 	SDL_zero(spec);
 
@@ -248,7 +253,7 @@ void soundgenerator::init(SoundGenerator* generator)
 		SDL_Log("Failed to open audio: %s", SDL_GetError());
 	}
 
-	SDL_PauseAudioDevice(generator->sqrWave0.deviceID, 1);
+	SDL_PauseAudioDevice(generator->sqrWave0.deviceID, 1);*/
 }
 
 //=======
@@ -392,8 +397,9 @@ void internalmemory::ioRegisterAccess(InternalMemory* intmem, u16 address, u8 wr
 	case 0xFF01:// some cable link stuff, handle WAYYY later
 	case 0xFF02:// some cable link stuff, handle WAYYY later
 
-	case 0xFF07:
+	case 0xFF05:
 	case 0xFF06:
+	case 0xFF07:
 	case 0xFF10:
 	case 0xFF11:
 	case 0xFF12:

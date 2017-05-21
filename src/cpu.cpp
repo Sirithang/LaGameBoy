@@ -47,6 +47,9 @@ int extendedDecode(CPU* cpu, u8 opcode)
 	case 0x20:
 		FUNC_ON_REGISTER_ASSIGN(SLA, dest, 8, 16);
 		break;
+	case 0x28:// SRA dest
+		FUNC_ON_REGISTER_ASSIGN(SRA, dest, 8, 16);
+		break;
 	case 0x30://SWAP dest
 		FUNC_ON_REGISTER_ASSIGN(SWAP, dest, 8, 16);
 		break;
@@ -165,6 +168,11 @@ int decode(CPU* cpu, u8 opcode)
 		cpu->registers.A = RLC(cpu, cpu->registers.A, 0);
 		cycle = 4;
 		break;
+	case 0x08: //LD (a16),SP
+		motherboard::writeu16(cpu->mb, motherboard::fetchu16(cpu->mb, cpu->PC), cpu->SP);
+		cpu->PC += 2;
+		cycle = 20;
+		break;
 	case 0x09: //ADD HL, BC
 		cpu->registers.HL = ADD(cpu, cpu->registers.HL, cpu->registers.BC);
 		cycle = 8;
@@ -192,6 +200,10 @@ int decode(CPU* cpu, u8 opcode)
 		break;
 	case 0x0F:// RRCA
 		cpu->registers.A = RRC(cpu, cpu->registers.A, 0);
+		cycle = 4;
+		break;
+	case 0x10: //STOP, for low power mode. ???
+		cpu->PC += 1; //seem that opcode is supposed to be 2 byte long...
 		cycle = 4;
 		break;
 	case 0x11://LD DE, d16
@@ -396,6 +408,12 @@ int decode(CPU* cpu, u8 opcode)
 		motherboard::writeu8(cpu->mb, cpu->registers.HL, motherboard::fetchu8(cpu->mb, cpu->PC));
 		cpu->PC += 1;
 		cycle = 12;
+		break;
+	case 0x37://SCF
+		BITCLEAR(cpu->registers.F, HALF_CARRY_FLAG_BIT);
+		BITCLEAR(cpu->registers.F, SUBSTRACT_FLAG_BIT);
+		BITSET(cpu->registers.F, CARRY_FLAG_BIT);
+		cycle = 4;
 		break;
 	case 0x38: //JR C,r8
 		if (BITTEST(cpu->registers.F, CARRY_FLAG_BIT) != 0)
@@ -1273,6 +1291,11 @@ int decode(CPU* cpu, u8 opcode)
 		cpu->registers.F = 0;
 		cpu->registers.A == 0 ? BITSET(cpu->registers.F, ZERO_FLAG_BIT) : BITCLEAR(cpu->registers.F, ZERO_FLAG_BIT);
 		cycle = 8;
+		break;
+	case 0xF7: //RST 30H
+		stackPush(cpu, cpu->PC);
+		cpu->PC = 0x30;
+		cycle = 16;
 		break;
 	case 0xF8: //LD HL,SP+r8
 		cpu->registers.HL = motherboard::fetchu16(cpu->mb, cpu->SP + motherboard::fetchs8(cpu->mb, cpu->PC));

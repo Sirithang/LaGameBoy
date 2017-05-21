@@ -163,7 +163,7 @@ void gpu::renderLine(GPU* gpu, u8 line)
 						u8 correctedSprNum = sprNum;
 						if (spriteHeight > 8)
 						{//need to correct sprite num if in 8x16
-							correctedSprNum = ySpriLine >= 8 ? sprNum & 0xFE : sprNum | 0x01;
+							//correctedSprNum = ySpriLine >= 8 ? sprNum & 0xFE : sprNum | 0x01;
 						}
 
 						u8 paletteIdx = graphic::fetchTilePixelPaletteIdx(gpu->mb, correctedSprNum, ySpriLine, correctedXSpriLine, 1);

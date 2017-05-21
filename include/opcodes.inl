@@ -216,6 +216,18 @@ inline u8 SRL(CPU* cpu, u8 value)
 	return ret;
 }
 
+inline u8 SRA(CPU* cpu, u8 value)
+{
+	u8 ret = value;
+	u8 oldBit7 = BITTEST(ret, 7);
+	cpu->registers.F = 0;
+	if ((ret & 0x1) != 0) BITSET(cpu->registers.F, CARRY_FLAG_BIT);
+	ret = ret >> 1;
+	if (oldBit7) BITSET(ret, 7);
+	if (ret == 0x0) BITSET(cpu->registers.F, ZERO_FLAG_BIT);
+	return ret;
+}
+
 inline u8 SET(CPU* cpu, u8 value, u8 bit)
 {
 	u8 ret = value;
