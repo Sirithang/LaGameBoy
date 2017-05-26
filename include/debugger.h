@@ -38,8 +38,8 @@ namespace debugger
 
 	void createDebugDisplay(DebugDisplay* display, const char* title, int w, int h, int zoom);
 
-	void tileDataDebug(DebugDisplay* display, Motherboard* mb);
-	void bgmapDebug(DebugDisplay* display, Motherboard* mb, u8 bgNum);
+	void tileDataDebug(DebugDisplay* display, Motherboard* mb, u8 type);
+	void bgmapDebug(DebugDisplay* display, Motherboard* mb, u8 bgNum, u8 type);
 
 	CallHistory::Call* getCurrentCallData();
 }

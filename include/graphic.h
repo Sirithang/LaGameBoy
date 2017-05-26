@@ -33,6 +33,6 @@ namespace gpu
 
 namespace graphic
 {
-	u8 fetchTilePixelPaletteIdx(Motherboard* motherboard, u8 tileNum, u8 pixelY, u8 pixelX, u8 isOBJ);
-	void drawTile(Motherboard* motherboard, u16 x, u16 y, u8 tilenum, Uint32* pixels, u16 width);
+	u8 fetchTilePixelPaletteIdx(Motherboard* motherboard, u8 tileNum, u8 pixelY, u8 pixelX, u8 type);
+	void drawTile(Motherboard* motherboard, u16 x, u16 y, u8 tilenum, u8 type, Uint32* pixels, u16 width);
 }

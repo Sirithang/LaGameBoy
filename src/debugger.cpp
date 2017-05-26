@@ -23,7 +23,7 @@ void debugger::createDebugDisplay(DebugDisplay* display, const char* title, int 
 	display->zoom = zoom;
 }
 
-void debugger::tileDataDebug(DebugDisplay* display, Motherboard* mb)
+void debugger::tileDataDebug(DebugDisplay* display, Motherboard* mb, u8 type)
 {
 	SDL_RenderClear(display->renderer);
 
@@ -32,7 +32,7 @@ void debugger::tileDataDebug(DebugDisplay* display, Motherboard* mb)
 	{
 		for (int x = 0; x < 16; ++x)
 		{
-			graphic::drawTile(mb, x * 8, y * 8, (y * 16) + x, display->pixels, display->w);
+			graphic::drawTile(mb, x * 8, y * 8, (y * 16) + x, type, display->pixels, display->w);
 		}
 	}
 
@@ -41,12 +41,15 @@ void debugger::tileDataDebug(DebugDisplay* display, Motherboard* mb)
 	SDL_RenderPresent(display->renderer);
 }
 
-void debugger::bgmapDebug(DebugDisplay* display, Motherboard* mb, u8 bgNum)
+void debugger::bgmapDebug(DebugDisplay* display, Motherboard* mb, u8 bgNum, u8 type)
 {
 	SDL_RenderClear(display->renderer);
 
 	u8 scrollY = motherboard::fetchu8(mb, 0xFF42);
 	u8 scrollX = motherboard::fetchu8(mb, 0xFF43);
+
+	u8 winY = motherboard::fetchu8(mb, 0xFF4A);
+	u8 winX = motherboard::fetchu8(mb, 0xFF4B);
 
 	for (int y = 0; y < 32; ++y)
 	{
@@ -55,7 +58,7 @@ void debugger::bgmapDebug(DebugDisplay* display, Motherboard* mb, u8 bgNum)
 			u16 tileIdx = y * 32 + x;
 			u8 tileNum = motherboard::fetchu8(mb, (bgNum == 0 ? 0x9800 : 0x9C00) + tileIdx);
 
-			graphic::drawTile(mb, x * 8, y * 8, tileNum, display->pixels, display->w);
+			graphic::drawTile(mb, x * 8, y * 8, tileNum, type, display->pixels, display->w);
 		}
 	}
 
@@ -65,6 +68,11 @@ void debugger::bgmapDebug(DebugDisplay* display, Motherboard* mb, u8 bgNum)
 	SDL_SetRenderDrawColor(display->renderer, 255, 0, 0, 255);
 	SDL_Rect rect = { scrollX * display->zoom, scrollY * display->zoom, SCREEN_WIDTH * display->zoom, SCREEN_HEIGHT * display->zoom };
 	SDL_RenderDrawRect(display->renderer, &rect);
+
+	SDL_SetRenderDrawColor(display->renderer, 0, 0, 255, 255);
+	rect = { (winX - 7) * display->zoom, winY * display->zoom, (SCREEN_WIDTH - winX + 7) * display->zoom, (SCREEN_HEIGHT - winY) * display->zoom };
+	SDL_RenderDrawRect(display->renderer, &rect);
+
 
 	SDL_RenderPresent(display->renderer);
 }

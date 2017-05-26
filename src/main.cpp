@@ -25,6 +25,7 @@ int main(int argc, char **argv)
 		DebugDisplay bgmapDisplay;
 		debugger::createDebugDisplay(&bgmapDisplay, "BG 0", 256, 256, 2);
 		u8 currentBg = 0;
+		u8 currentType = 0;
 
 		window = SDL_CreateWindow("La GameBoy", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH*2, SCREEN_HEIGHT*2, SDL_WINDOW_SHOWN);
 
@@ -48,7 +49,7 @@ int main(int argc, char **argv)
 			mb.cpu.registers.F = 0;
 
 			motherboard::init(&mb);
-			cart::load(&mb.cart, "data/Zelda.gb");
+			cart::load(&mb.cart, "data/SuperMarioLand.gb");
 			gpu::init(&mb.gpu);
 
 			//used to refresh debug display every 70000 cycles;
@@ -68,6 +69,8 @@ int main(int argc, char **argv)
 					case SDL_KEYDOWN:
 						if (event.key.keysym.scancode == SDL_SCANCODE_B)
 							currentBg = 1 - currentBg;
+						else if (event.key.keysym.scancode == SDL_SCANCODE_N)
+							currentType = 1 - currentType;
 					case SDL_KEYUP:
 						switch (event.key.keysym.scancode)
 						{
@@ -142,8 +145,8 @@ int main(int argc, char **argv)
 				{
 					debugRefreshCycle -= 70000;
 					
-					debugger::tileDataDebug(&tileDataDisplay, &mb);
-					debugger::bgmapDebug(&bgmapDisplay, &mb, currentBg);
+					debugger::tileDataDebug(&tileDataDisplay, &mb, currentType);
+					debugger::bgmapDebug(&bgmapDisplay, &mb, currentBg, currentType);
 					//debugger::bgmapDebug(&bgmap1Display, &mb, 1);
 
 					// Update the screen for debug purpose (what was in the buffer before the CPu halted

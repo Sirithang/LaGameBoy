@@ -103,6 +103,9 @@ void gpu::renderLine(GPU* gpu, u8 line)
 	u8 scrollY = motherboard::fetchu8(gpu->mb, 0xFF42);
 	u8 scrollX = motherboard::fetchu8(gpu->mb, 0xFF43);
 
+	u8 windowY = gpu->mb->internalMemory.IORegister[0x4A];
+	u8 windowX = gpu->mb->internalMemory.IORegister[0x4B];
+
 	u8 correctedY = (scrollY + line);
 	u8 correctedX = scrollX;
 
@@ -119,6 +122,11 @@ void gpu::renderLine(GPU* gpu, u8 line)
 	u8 spritePalette = gpu->mb->internalMemory.IORegister[0x48];
 
 	u8 bgNumber = BITTEST(gpu->mb->internalMemory.IORegister[0x40], 3);
+
+	u8 windowNumber = BITTEST(gpu->mb->internalMemory.IORegister[0x40], 6);
+	u8 windowEnabled = BITTEST(gpu->mb->internalMemory.IORegister[0x40], 5);
+
+	u8 tileType = BITTEST(gpu->mb->internalMemory.IORegister[0x40], 4);
 
 	// For each pixel we store which sprite number(0-40) should be displayed here.
 	u8 pxielSpritesBuffer[SCREEN_WIDTH];
@@ -166,6 +174,7 @@ void gpu::renderLine(GPU* gpu, u8 line)
 							//correctedSprNum = ySpriLine >= 8 ? sprNum & 0xFE : sprNum | 0x01;
 						}
 
+						//last param = 1, as sprite can only use the 0-255 index , not the signed one
 						u8 paletteIdx = graphic::fetchTilePixelPaletteIdx(gpu->mb, correctedSprNum, ySpriLine, correctedXSpriLine, 1);
 
 						if (paletteIdx != 0) //index 0 is transparent for sprite
@@ -190,38 +199,79 @@ void gpu::renderLine(GPU* gpu, u8 line)
 
 	for (u8 x = 0; x < SCREEN_WIDTH; ++x)
 	{
+		bool isWindow = windowEnabled && line >= windowY && (x >= (windowX-7));
+
 		u8 currentXTile = correctedX / 8;
 
-		if (xTileIdx != currentXTile)
-		{
-			xTileIdx = currentXTile;
-			tileX = correctedX - xTileIdx * 8;
 
-			u16 tileIdx = yTileIdx * 32 + xTileIdx;
+		if (isWindow)
+		{//redo a lot of logic, as it mess with the incrementing of tile (as tile aren't in the same space)
+		 //inneficiant, but improve later if needed
+			u8 localY = (line - windowY);
+			u8 localX = (x - windowX + 7);
 
-			tileNum = motherboard::fetchu8(gpu->mb, (bgNumber == 0 ? 0x9800 : 0x9C00 )+ tileIdx);
-		}
+			u8 winYtile =  localY / 8;
+			u8 winXTile = localX / 8;
+			u16 winTile = winYtile * 32 + winXTile;
+			u16 winTileNum = motherboard::fetchu8(gpu->mb, (windowNumber == 0 ? 0x9800 : 0x9C00) + winTile);
 
-		u8 paletteIdx = graphic::fetchTilePixelPaletteIdx(gpu->mb, tileNum, tileY, tileX, 0);
-		u8 shade = EXTRACT2BIT(bgPalette, paletteIdx * 2);
+			u8 winTileY = localY - winYtile * 8;
+			u8 winTileX = localX - winXTile * 8;
 
-		int offset = (line * SCREEN_WIDTH) + x;
+			u8 paletteIdx = graphic::fetchTilePixelPaletteIdx(gpu->mb, winTileNum, winTileY, winTileX, tileType);
+			u8 shade = EXTRACT2BIT(bgPalette, paletteIdx * 2);
 
-		if (pxielSpritesBuffer[x] != 0xFF)
-		{//there is a sprite pixel here, now need to know if set into above or below BG
+			int offset = (line * SCREEN_WIDTH) + x;
 
-			if (paletteIdx != 0)
-			{//BG palette index 0 is always behind the sprite (i.e. consider it transparent)
-				u8 attribute = OAM[pxielSpritesBuffer[x] * 4 + 3];
-				if (BITTEST(attribute, 7) != 0x0)
-				{//this object is behind the BG so draw the BG
-					gpu->buffer[offset] = palette[shade];
+			if (pxielSpritesBuffer[x] != 0xFF)
+			{//there is a sprite pixel here, now need to know if set into above or below BG
+
+				if (paletteIdx != 0)
+				{//BG palette index 0 is always behind the sprite (i.e. consider it transparent)
+					u8 attribute = OAM[pxielSpritesBuffer[x] * 4 + 3];
+					if (BITTEST(attribute, 7) != 0x0)
+					{//this object is behind the BG so draw the BG
+						gpu->buffer[offset] = palette[shade];
+					}
 				}
+			}
+			else
+			{//no sprite here, just write BG color
+				gpu->buffer[offset] = palette[shade];
 			}
 		}
 		else
-		{//no sprite here, just write BG color
-			gpu->buffer[offset] = palette[shade];
+		{
+			if (xTileIdx != currentXTile)
+			{
+				xTileIdx = currentXTile;
+				tileX = correctedX - xTileIdx * 8;
+
+				u16 tileIdx = yTileIdx * 32 + xTileIdx;
+				tileNum = motherboard::fetchu8(gpu->mb, (bgNumber == 0 ? 0x9800 : 0x9C00) + tileIdx);
+			}
+
+			u8 paletteIdx = graphic::fetchTilePixelPaletteIdx(gpu->mb, tileNum, tileY, tileX, tileType);
+			u8 shade = EXTRACT2BIT(bgPalette, paletteIdx * 2);
+
+			int offset = (line * SCREEN_WIDTH) + x;
+
+			if (pxielSpritesBuffer[x] != 0xFF)
+			{//there is a sprite pixel here, now need to know if set into above or below BG
+
+				if (paletteIdx != 0)
+				{//BG palette index 0 is always behind the sprite (i.e. consider it transparent)
+					u8 attribute = OAM[pxielSpritesBuffer[x] * 4 + 3];
+					if (BITTEST(attribute, 7) != 0x0)
+					{//this object is behind the BG so draw the BG
+						gpu->buffer[offset] = palette[shade];
+					}
+				}
+			}
+			else
+			{//no sprite here, just write BG color
+				gpu->buffer[offset] = palette[shade];
+			}
 		}
 
 		correctedX++;
@@ -231,13 +281,13 @@ void gpu::renderLine(GPU* gpu, u8 line)
 
 //------------------------------------------------------
 
-u8 graphic::fetchTilePixelPaletteIdx(Motherboard* mb, u8 tileNum, u8 pixelY, u8 pixelX, u8 isOBJ)
+u8 graphic::fetchTilePixelPaletteIdx(Motherboard* mb, u8 tileNum, u8 pixelY, u8 pixelX, u8 type)
 {
 	u8 leastByte;
 	u8 mostByte;
 
-	if (isOBJ == 0 && BITTEST(mb->internalMemory.IORegister[0x40], 4) == 0)
-	{//sprite can only 
+	if (type == 0)
+	{
 		leastByte = motherboard::fetchu8(mb, 0x9000 + (s8)tileNum * 16 + pixelY * 2);
 		mostByte = motherboard::fetchu8(mb, 0x9000 + (s8)tileNum * 16 + pixelY * 2 + 1);
 	}
@@ -255,7 +305,7 @@ u8 graphic::fetchTilePixelPaletteIdx(Motherboard* mb, u8 tileNum, u8 pixelY, u8 
 	return paletteIdx;
 }
 
-void graphic::drawTile(Motherboard* motherboard, u16 x, u16 y, u8 tilenum, Uint32* pixels, u16 width)
+void graphic::drawTile(Motherboard* motherboard, u16 x, u16 y, u8 tilenum, u8 type, Uint32* pixels, u16 width)
 {
 	u8 paletteByte = motherboard::fetchu8(motherboard, 0xFF47);
 
@@ -271,7 +321,7 @@ void graphic::drawTile(Motherboard* motherboard, u16 x, u16 y, u8 tilenum, Uint3
 
 			//less effective than using the fetched byte above, but allow parity with actual emulation
 			//rendering, to show bugs
-			u8 paletteIdx = graphic::fetchTilePixelPaletteIdx(motherboard, tilenum, py, px, 1);
+			u8 paletteIdx = graphic::fetchTilePixelPaletteIdx(motherboard, tilenum, py, px, type);
 
 			/*u8 paletteIdx = BITTEST(leastByte, offset) != 0 ? 0x1 : 0x0;
 			paletteIdx += BITTEST(mostByte, offset) != 0 ? 0x2 : 0x0;*/

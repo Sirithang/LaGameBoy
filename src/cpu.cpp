@@ -107,6 +107,12 @@ int extendedDecode(CPU* cpu, u8 opcode)
 	case 0xD8://SET 3,dest
 		FUNC_ON_REGISTER_PARAM_ASSIGN(SET, dest, 3, 8, 16);
 		break;
+	case 0xE0:
+		FUNC_ON_REGISTER_PARAM_ASSIGN(SET, dest, 4, 8, 16);
+		break;
+	case 0xE8:
+		FUNC_ON_REGISTER_PARAM_ASSIGN(SET, dest, 5, 8, 16);
+		break;
 	case 0xF0://SET 6, dest
 		FUNC_ON_REGISTER_PARAM_ASSIGN(SET, dest, 6, 8, 16);
 		break;
@@ -1277,6 +1283,10 @@ int decode(CPU* cpu, u8 opcode)
 		cpu->registers.AF = stackPop(cpu);
 		cycle = 12;
 		break;
+	case 0xF2://LD A,(C)
+		cpu->registers.A = motherboard::fetchu8(cpu->mb, 0xFF00 + cpu->registers.C);
+		cycle = 8;
+		break;
 	case 0xF3: // DI
 		cpu->interruptEnabled = 0;
 		cycle = 4;
@@ -1406,13 +1416,15 @@ void timerOp(CPU* cpu, int opCyle)
 
 		if (cpu->timerCycleCounter > maxCycleCount)
 		{
-			cpu->timerCycleCounter = 0;
+			cpu->timerCycleCounter -= maxCycleCount;
 			u16 timerCounter = ioReg[0x05] + 1;
 			if (timerCounter > 0xFF)
 			{
 				BITSET(ioReg[0x0f], 2);
 				ioReg[0x05] = ioReg[0x06];
 			}
+			else
+				ioReg[0x05] = timerCounter;
 		}
 	}
 
